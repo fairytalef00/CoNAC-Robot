@@ -1,0 +1,7 @@
+{
+    "port": "COM4",
+    "configuration": "upload_method=UploadMethod",
+    "board": "OpenCR:OpenCR:OpenCR",
+    "programmer": "dfu_util",
+    "sketch": "Sim_RobotArm2_ver6_CoNAC2.ino"
+}
