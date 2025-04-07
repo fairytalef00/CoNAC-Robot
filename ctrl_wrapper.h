@@ -8,7 +8,8 @@
 
 namespace CoNAC_Params {
     extern double u_ball;      
-    extern double alp;        
+    extern double alp1;  
+    extern double alp2;        
     extern double beta[4];    
     extern double th_max[3];    
     extern double B[4];       

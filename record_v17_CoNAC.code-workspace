@@ -5,6 +5,12 @@
 		},
 		{
 			"path": "."
+		},
+		{
+			"path": "../record_v17_CoNAC"
+		},
+		{
+			"path": "../../Documents/Arduino/libraries/CoNAC"
 		}
 	],
 	"settings": {

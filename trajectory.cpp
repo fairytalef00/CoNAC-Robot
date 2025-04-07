@@ -80,9 +80,9 @@ namespace Trajectory {
       qd2 << +3*M_PI/4, -3*M_PI/4;
       qd3 << 0.0, M_PI*1/2;
 
-      qd1 = qd1 * 1.0/(MAX_CYCLE_NUM - cycle_count);
-      qd2 = qd2 * 1.0/(MAX_CYCLE_NUM - cycle_count);
-      qd3 = qd3 * 1.0/(MAX_CYCLE_NUM - cycle_count);
+      qd1 = q0 + (qd1-q0) * 1.0/(MAX_CYCLE_NUM - cycle_count);
+      qd2 = q0 + (qd2-q0) * 1.0/(MAX_CYCLE_NUM - cycle_count);
+      qd3 = q0 + (qd3- q0) * 1.0/(MAX_CYCLE_NUM - cycle_count);
 
       // TODO 초기값에서 부터 커져야 함함
       /*
@@ -98,13 +98,13 @@ namespace Trajectory {
 
       if (t < Ttraj) {
         if (t < Ttraj/4) {
-          poly_filter(q0,qd1,Ttraj/4,t); // q0 -> qd
+          poly_filter(q0,qd1,Ttraj/4,t); // q0 -> qd1
         } else if (t < Ttraj*2/4) {
-          poly_filter(qd1,qd2,Ttraj/4,t-Ttraj/4); // qd -> q0
+          poly_filter(qd1,qd2,Ttraj/4,t-Ttraj/4); // qd1 -> qd2
         } else if (t < Ttraj*3/4) {
-          poly_filter(qd2,qd3,Ttraj/4,t-Ttraj*2/4); // q0 -> qd
+          poly_filter(qd2,qd3,Ttraj/4,t-Ttraj*2/4); // qd2 -> qd3
         } else {
-          poly_filter(qd3,q0,Ttraj/4,t-Ttraj*3/4); // q0 -> qd
+          poly_filter(qd3,q0,Ttraj/4,t-Ttraj*3/4); // qd3 -> q0
         }
       } else {
         elapsed_time = 0.0;
