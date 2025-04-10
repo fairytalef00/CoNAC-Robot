@@ -16,17 +16,19 @@ unsigned long lastPrintTimeLimit = 0;
 // ctrl_wrapper 실행 시간
 unsigned long ctrlStartTime = 0;
 unsigned long ctrlEndTime = 0;
-unsigned long ctrlExecSumMicros = 0;
-unsigned int ctrlExecCount = 0;
+unsigned long CtrlTime = 0;
 
-// enterExecuteMode 실행 시간
-unsigned long execModeStartTime = 0;
-unsigned long execModeEndTime = 0;
-unsigned long execModeSumMicros = 0;
-unsigned int execModeCount = 0;
+static ControlMode lastControlFlag = STANDBY; // Track the previous CONTROL_FLAG
+
+static unsigned int REST1_count = 0; // 반복 횟수 추적
+static unsigned int REST2_count = 0; // 반복 횟수 추적
+float MAX_repet = 16.0;
 
 // 1초 타이머
 unsigned long lastPrintTimeCtrlExec = 0;
+
+unsigned long lastREST1timeState = 0;
+unsigned long lastREST2timeState = 0;
 
 // 타이머 및 실행 시간 추적 변수
 HardwareTimer SimTimer(2);     // TIM2: Control Loop
@@ -36,6 +38,26 @@ HardwareTimer ControlTimer(4);
 ControlMode prevMode = STANDBY; 
 
 unsigned int CONTROL_NUM = 1;
+
+void initializeSim(){
+  using namespace Trajectory;
+  using namespace Manipulator;
+  using namespace CoNAC_Params;
+  using namespace CoNAC_Data;
+  std::srand(18);
+  for (int i = 0; i < 58; ++i) {
+    double random = static_cast<double>(std::rand()) / RAND_MAX;
+    double val = (random - 0.5) * 1e-1;
+    th_arr[i] = std::round(val * 1e7) / 1e7; 
+  }
+  Vn.setZero();
+  lbd.setZero();
+  q << - M_PI/2, 0;
+  qdot.setZero();
+  initializeTrajectory(); // Trajectory 초기화
+
+  u.setZero();
+}
 
 void setup() {
   delay(1000);
@@ -97,31 +119,30 @@ void setup() {
 void trajectoryLoop() {
   using namespace Trajectory;
 
-  static ControlMode lastControlFlag = STANDBY; // Track the previous CONTROL_FLAG
-
-  // Reset trajectory state if CONTROL_FLAG changes
-  if (CONTROL_FLAG != lastControlFlag) {
-    traj_flag(); // Reset trajectory state
-    lastControlFlag = CONTROL_FLAG;
-  }
-
   switch (CONTROL_FLAG) {
     case STANDBY:
+      break;
+
     case HOME:
       generateReference0(traj_dt); 
       break;
 
-    case EXECUTE1:
-    case EXECUTE2:
+    case REST1:
+      break;
+
+    case REST2:
+      break;
+
+    case EXECUTE1:  // CoNAC cycle1
+    case EXECUTE2:  // Aux cycle1
+
       generateReference1(traj_dt); 
       break;
 
-    case EXECUTE3:
-    case EXECUTE4:    
-      generateReference2(traj_dt); 
+    case EXECUTE3:  //CoNAC episode1
+    case EXECUTE4:  // Aux episode1  
+    generateReference3(traj_dt); 
       break;
-
-      // TODO EXE5, 6 만들기기
 
     default:
       return;
@@ -139,6 +160,16 @@ void controlLoop() {
   switch (CONTROL_FLAG){
 
     case STANDBY : 
+      u.setZero();
+      u_sat.setZero();
+      break;
+
+      case REST1:
+      u.setZero();
+      u_sat.setZero();
+      break;
+
+      case REST2:
       u.setZero();
       u_sat.setZero();
       break;
@@ -168,42 +199,102 @@ void controlLoop() {
   }
 
   ctrlEndTime = micros();
-  ctrlExecSumMicros += (ctrlEndTime - ctrlStartTime);
-  ctrlExecCount++;
+  CtrlTime = (ctrlEndTime - ctrlStartTime);
 }
 
 
 // Main
-void SimLoop() 
-{
+void SimLoop() {
   using namespace Manipulator;
   using namespace Trajectory;
   using namespace CoNAC_Data;
+  using namespace CoNAC_Params;
+
+  // Reset trajectory state if CONTROL_FLAG changes
+  if (CONTROL_FLAG != lastControlFlag) {
+    traj_flag(); // Reset trajectory state
+    lastControlFlag = CONTROL_FLAG;
+  }
 
   switch (CONTROL_FLAG){
 
     case STANDBY : 
       if (prevMode != STANDBY) {
-          std::srand(18);
-          for (int i = 0; i < 58; ++i) {
-            double random = static_cast<double>(std::rand()) / RAND_MAX;
-            double val = (random - 0.5) * 1e-5;
-            th_arr[i] = std::round(val * 1e7) / 1e7; 
+        initializeSim();
+        for (int i = 3; i <= 7; ++i) {   
+          beta[i] = 10;
         }
+        A_zeta[0] = -10;
+        A_zeta[2] = -10;
       }
       enterStandbyMode();
       break;
-
     case HOME : 
       if (prevMode != HOME) {
           std::srand(18);
           for (int i = 0; i < 58; ++i) {
             double random = static_cast<double>(std::rand()) / RAND_MAX;
-            double val = (random - 0.5) * 1e-5;
+            double val = (random - 0.5) * 1e-1;
             th_arr[i] = std::round(val * 1e7) / 1e7; 
         }
       }
       enterExecuteMode();    
+      break;
+
+    case REST1 : 
+      if (prevMode != REST1) {
+        initializeSim();
+        lastREST1timeState = millis(); // Reset the timer
+        for (int i = 3; i <= 7; ++i) {         // beta[3]~beta[7] 업데이트
+          beta[i] += 5;
+        }
+      }
+
+      enterStandbyMode();
+
+      // 2초 대기 후 실행
+      if (millis() - lastREST1timeState >= 2000) {
+        REST1_count++;
+        if (REST1_count >= MAX_repet) {
+          REST1_count = 0; // 반복 횟수 초기화
+          CONTROL_FLAG = EXECUTE4; // 반복 종료 후 EXECUTE2로 전환
+        } else {
+          // Execute3 실행
+          CONTROL_FLAG = EXECUTE3;
+        }
+        lastREST1timeState = millis();
+      }
+
+      break;
+
+      case REST2 : 
+      if (prevMode != REST2) {
+        initializeSim();
+        for (int i = 3; i <= 7; ++i) {         // beta[3]~beta[7] 업데이트
+          beta[i] += 0;
+        }
+        lastREST2timeState = millis(); // Reset the timer
+        // A_zeta 업데이트
+        A_zeta[0] -= 5;
+        A_zeta[2] -= 5;
+
+      }
+
+      enterStandbyMode();
+
+      // 2초 대기 후 실행
+      if (millis() - lastREST2timeState >= 2000) {
+        REST2_count++;
+        if (REST2_count >= MAX_repet) {
+          REST2_count = 0; // 반복 횟수 초기화
+          CONTROL_FLAG = STANDBY; // 반복 종료 후 EXECUTE2로 전환
+        } else {
+          // Execute1 실행
+          CONTROL_FLAG = EXECUTE4;
+        }
+        lastREST2timeState = millis();
+      }
+
       break;
 
     case EXECUTE1 :
@@ -235,7 +326,7 @@ void SimLoop()
       break;
 
     default:
-        return;
+      return;
   }
 
   prevMode = CONTROL_FLAG; // 현재 모드 저장
@@ -244,8 +335,18 @@ void SimLoop()
 void enterStandbyMode() {
   float elapsedTime = millis() / 1000.0f;  // 진행 시간 (초 단위)
   using namespace Manipulator;
+  using namespace Trajectory;
   using namespace CoNAC_Params;
   using namespace CoNAC_Data;
+
+  q << - M_PI/2, 0;
+  qdot.setZero();
+  q0 =q;
+  qdot0.setZero();
+  r << - M_PI/2, 0;
+  rdot.setZero();
+  u.setZero();
+  u_sat.setZero();
 
 
   updateDynamics(sim_dt);
@@ -282,14 +383,14 @@ void printState(float elapsedTime) {
   using namespace Manipulator;
   using namespace Trajectory;
   using namespace CoNAC_Data;
-
-  // Calculate average ctrl_wrapper execution time in seconds
-  float avgCtrlTimeSec = (ctrlExecCount > 0) ? (ctrlExecSumMicros / float(ctrlExecCount)) / 1e6f : 0.0f;
+  using namespace CoNAC_Params;
 
   // 출력할 데이터를 배열로 구성
   float data[] = {
     elapsedTime,
     CONTROL_FLAG,
+    A_zeta[0],
+    beta[3],
     q(0),
     q(1),
     qdot(0),
@@ -315,7 +416,7 @@ void printState(float elapsedTime) {
     Vn(2), // 잊지마잉
     zeta_arr[0],
     zeta_arr[1],
-    avgCtrlTimeSec // Add average ctrl_wrapper execution time
+    CtrlTime * 1e-6 // Add average ctrl_wrapper execution time
   };
 
   // 데이터 반복 출력
@@ -333,13 +434,14 @@ void printState(float elapsedTime) {
 void printGain() {
   using namespace CoNAC_Params;
   using namespace CoNAC_Data;
+  using namespace Trajectory;
 
     Serial.print("u_ball ");
     Serial.print(u_ball);
     Serial.print(" ");
 
-    Serial.print("alp ");
-    Serial.print(alp);
+    Serial.print("cycle_count ");
+    Serial.print(cycle_count);
     Serial.print(" ");
 
     Serial.print("beta ");
@@ -368,33 +470,7 @@ void printGain() {
     Serial.println();
 
 }
-void printCalTime() {
 
-    if (ctrlExecCount > 0 || execModeCount > 0) {
-        if (ctrlExecCount > 0) {
-            float avgCtrlTimeSec = (ctrlExecSumMicros / float(ctrlExecCount)) / 1e6f;
-            Serial.print(avgCtrlTimeSec, 6);
-        } else {
-            Serial.print("0.000000");
-        }
-
-        // Serial.print(" ExecuteTime ");
-        // if (execModeCount > 0) {
-        //     float avgExecModeSec = (execModeSumMicros / float(execModeCount)) / 1e6f;
-        //     Serial.print(avgExecModeSec, 6);
-        // } else {
-        //     Serial.print("0.000000");
-        // }
-
-        Serial.println();
-    }
-
-    // 초기화
-    ctrlExecSumMicros = 0;
-    ctrlExecCount = 0;
-    execModeSumMicros = 0;
-    execModeCount = 0;
-}
 
 void checkJointLimits() {
   using namespace Manipulator;

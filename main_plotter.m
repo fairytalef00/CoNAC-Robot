@@ -31,7 +31,6 @@ ctrl2_name = "c2"; % Aux.
 %%
 ctrl1_log = post_procc(ctrl1_name);
 ctrl2_log = post_procc(ctrl2_name);
-
 %% RESULT PLOTTER
 % T = ctrl1_log.T;
 t1 = ctrl1_log(:,1);

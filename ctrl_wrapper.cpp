@@ -3,17 +3,17 @@
 #include <CoNAC.h>
 
 namespace CoNAC_Params {
-    double u_ball = 10;      
-    double alp1 = 1.5;        
-    double alp2 = 1.0;        
-    double beta[4] = {1e-3, 1e-3, 1e-3, 1e2};    
+    double u_ball = 12.5f;      
+    double alp1 = 1;        
+    double alp2 = 0.8;        
+    double beta[8] = {1e-3, 1e-3, 1e-3, 10, 10, 10, 10, 10};    
     double th_max[3] = {11, 12, 13};    
     double B[4] = {1, 0, 0, 1};  
     double Lambda_arr[4] = {5, 0, 0, 5};
     double A_zeta[4] = {-10, 0, 0, -10}; // Aux. System Matrix 
-    double B_zeta[4] = {1000, 0, 0, 1000}; // Aux. Input Matrix
-    double u1_max = 10.0f;
-    double u2_max = 10.0f;
+    double B_zeta[4] = {100, 0, 0, 100}; // Aux. Input Matrix
+    double u1_max = 12.2f;
+    double u2_max = 11.2f;
 }
 
 namespace CoNAC_Data {
@@ -160,7 +160,7 @@ void initializeCoNAC() {
     std::srand(18);
     for (int i = 0; i < 58; ++i) {
         double random = static_cast<double>(std::rand()) / RAND_MAX;
-        double val = (random - 0.5) * 1e-5;
+        double val = (random - 0.5) * 1e-1;
         th_arr[i] = std::round(val * 1e7) / 1e7; 
     }
 

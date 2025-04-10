@@ -19,7 +19,7 @@ function [data, loss_ratio] = post_procc(ctrl_name)
     end
 
     % remove the data with large change
-    thr = 1e0;
+    thr = .2e2;
     for idx = 3:28
         tmp_pt = find((data(2:end,idx) - data(1:end-1,idx)).^2 > thr);
         pt = setdiff(pt, tmp_pt);

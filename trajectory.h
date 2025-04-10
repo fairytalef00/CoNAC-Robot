@@ -17,12 +17,15 @@ namespace Trajectory {
   extern Eigen::Vector2d q0;      // 초기 위치 q
   extern Eigen::Vector2d qdot0; 
   extern double Ttraj;           // 경로 생성 시간 (초)
+  extern double rep_count;
+  extern double cycle_count;
 
   // 함수 선언
   void initializeTrajectory();                         // 초기화
   void generateReference0(double dt);   
   void generateReference1(double dt);    
-  void generateReference2(double dt);          
+  void generateReference2(double dt);
+  void generateReference3(double dt);           
   void poly_filter(const Eigen::Vector2d& q0, const Eigen::Vector2d& qd, double T, double t);
   void poly_filter_home(const Eigen::Vector2d& q0, const Eigen::Vector2d& qd, double T, double t);
   void traj_flag();

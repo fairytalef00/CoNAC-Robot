@@ -284,14 +284,23 @@ void handleInputCommand(const String& input) {
         NVIC_SystemReset(); // 시스템 리셋
     } 
 
-    else if (input.equalsIgnoreCase("2") | input.equalsIgnoreCase("4")) {
+    else if (input.equalsIgnoreCase("2")) {
         // CONTROL_NUM = 1;
         CONTROL_FLAG = EXECUTE1;
     } 
-    else if (input.equalsIgnoreCase("3") | input.equalsIgnoreCase("5")) {
-        // CONTROL_NUM = 2; // Aux
-        CONTROL_FLAG = EXECUTE1;
+    else if (input.equalsIgnoreCase("4")) {
+        // CONTROL_NUM = 3; // Traj
+        CONTROL_FLAG = EXECUTE3;
     } 
+    else if (input.equalsIgnoreCase("5")) {
+        // CONTROL_NUM = 4; // Traj
+        CONTROL_FLAG = EXECUTE4;
+    } 
+    else if (input.equalsIgnoreCase("3")) {
+        // CONTROL_NUM = 2; // Traj
+        CONTROL_FLAG = EXECUTE2;
+    } 
+
     else if (input.equalsIgnoreCase("1")) {
         CONTROL_FLAG = HOME;
     }     
@@ -326,9 +335,13 @@ void handleInputCommand(const String& input) {
         double val = input.substring(7).toFloat();
         CoNAC_Params::u2_max = val;
     }
-    else if (input.startsWith("alp=")) {
-        double val = input.substring(4).toFloat();
-        CoNAC_Params::alp = val;
+    else if (input.startsWith("alp1=")) {
+        double val = input.substring(5).toFloat();
+        CoNAC_Params::alp1 = val;
+    }
+    else if (input.startsWith("alp2=")) {
+        double val = input.substring(5).toFloat();
+        CoNAC_Params::alp2 = val;
     }
     else if (input.startsWith("B=") || input.startsWith("Lambda_arr=") ||
             input.startsWith("th_max=") || input.startsWith("beta=")) {

@@ -13,7 +13,9 @@ enum ControlMode {
   EXECUTE1 = 2,
   EXECUTE2 = 3,
   EXECUTE3 = 4,
-  EXECUTE4 = 5
+  EXECUTE4 = 5,
+  REST1 = 6,
+  REST2 = 7
 };
 
 extern ControlMode CONTROL_FLAG;

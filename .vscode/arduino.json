@@ -1,7 +1,5 @@
 {
-    "configuration": "upload_method=UploadMethod",
+    "port": "COM4",
     "board": "OpenCR:OpenCR:OpenCR",
-    "programmer": "dfu_util",
-    "sketch": "CONAC_Robot.ino",
-    "port": "COM4"
+    "sketch": "CoNAC_Robot.ino"
 }

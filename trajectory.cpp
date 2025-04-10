@@ -15,12 +15,14 @@ namespace Trajectory {
   Eigen::Vector2d qd2;
   Eigen::Vector2d qd3;
 
-  double Ttraj = 20.0;               // 경로 생성 시간 (초)
+  // double Ttraj = 16.0;               // 경로 생성 시간 (초)
+  double Ttraj = 16.0;               // 경로 생성 시간 (초)
   double Thome = 5.0;               // 홈 위치 경로 생성 시간 (초)
   double elapsed_time = 0.0;        // 경과 시간
   bool is_trajectory_active = false; // 경로 활성화 상태
   double cycle_count = 0.0;
-  double MAX_CYCLE_NUM = 3.0; // 최대 사이클 수
+  double MAX_CYCLE_NUM = 2.0; // 최대 사이클 수
+  // double MAX_CYCLE_NUM = 5.0; // 최대 사이클 수
   double rep_count = 0.0;  // 에피소드 카운터; MS
   double MAX_REP_NUM = 3.0; // 최대 에피소드 수
 
@@ -32,7 +34,8 @@ namespace Trajectory {
       rddot.setZero();
 
       q0 = q;
-      qdot0 = qdot;      
+      qdot0.setZero();
+
 
       elapsed_time = 0.0;
   }
@@ -70,37 +73,28 @@ namespace Trajectory {
       if (cycle_count >= MAX_CYCLE_NUM) {
           is_trajectory_active = false; 
           elapsed_time = 0.0;
+
           CONTROL_FLAG = STANDBY;
-          // Serial.println("End_Record");
+
           return;
       }
       elapsed_time += dt;
       double t = elapsed_time;
-      qd1 << 0.0, M_PI*1/2;      
-      qd2 << +3*M_PI/4, -3*M_PI/4;
-      qd3 << 0.0, M_PI*1/2;
+      q0 << -M_PI/2, 0;
+      qd1 << M_PI/4, -M_PI/2;      
+      qd2 << 3*M_PI/4, -3*M_PI/4;
+      qd3 << -M_PI/4, M_PI/2;
 
-      qd1 = q0 + (qd1-q0) * 1.0/(MAX_CYCLE_NUM - cycle_count);
-      qd2 = q0 + (qd2-q0) * 1.0/(MAX_CYCLE_NUM - cycle_count);
-      qd3 = q0 + (qd3- q0) * 1.0/(MAX_CYCLE_NUM - cycle_count);
+      qd1 = q0+(qd1-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
+      qd2 = q0+(qd2-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
+      qd3 = q0+(qd3-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
 
-      // TODO 초기값에서 부터 커져야 함함
-      /*
-      q0 << M_PI*(-1.0/2.0), 0;
-      qd1 << M_PI*(1.0/2.0), M_PI*(1.0/2.0);      
-      qd2 << M_PI/(5.0*4.0), M_PI*(-3/4);
-      qd3 << M_PI*(1.0/2.0), M_PI*(1.0/2.0);      
-
-      qd1 = q0+ (qd1-q0) * 1.0/(MAX_CYCLE_NUM - cycle_count);
-      qd2 = q0+ qd2 * 1.0/(MAX_CYCLE_NUM - cycle_count);
-      qd3 = q0+ qd3 * 1.0/(MAX_CYCLE_NUM - cycle_count);
-      */
 
       if (t < Ttraj) {
         if (t < Ttraj/4) {
           poly_filter(q0,qd1,Ttraj/4,t); // q0 -> qd1
         } else if (t < Ttraj*2/4) {
-          poly_filter(qd1,qd2,Ttraj/4,t-Ttraj/4); // qd1 -> qd2
+          poly_filter(qd1,qd2,Ttraj/4,t-Ttraj/4); // qd1 -> q2
         } else if (t < Ttraj*3/4) {
           poly_filter(qd2,qd3,Ttraj/4,t-Ttraj*2/4); // qd2 -> qd3
         } else {
@@ -118,8 +112,9 @@ namespace Trajectory {
     {
       is_trajectory_active = false; 
       elapsed_time = 0.0;
-      CONTROL_FLAG = STANDBY;
-      // Serial.println("End_Record");
+      rep_count = 0.0;
+      cycle_count = 0.0;
+      CONTROL_FLAG = REST2;
       return;
     }
     
@@ -130,6 +125,50 @@ namespace Trajectory {
     }
 
     generateReference1(dt);
+  }
+
+  void generateReference3(double dt) {
+    using namespace Manipulator;
+    if (!is_trajectory_active) return;
+
+    if (cycle_count >= MAX_CYCLE_NUM) {
+        is_trajectory_active = false; 
+        elapsed_time = 0.0;
+
+        if (CONTROL_FLAG==4){
+          CONTROL_FLAG = REST1;
+        } else if (CONTROL_FLAG==5){
+          CONTROL_FLAG = REST2;
+        }
+
+        return;
+    }
+    elapsed_time += dt;
+    double t = elapsed_time;
+    q0 << -M_PI/2, 0;
+    qd1 << M_PI/4, -M_PI/2;      
+    qd2 << 3*M_PI/4, -3*M_PI/4;
+    qd3 << -M_PI/4, M_PI/2;
+
+    qd1 = q0+(qd1-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
+    qd2 = q0+(qd2-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
+    qd3 = q0+(qd3-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
+
+
+    if (t < Ttraj) {
+      if (t < Ttraj/4) {
+        poly_filter(q0,qd1,Ttraj/4,t); // q0 -> qd1
+      } else if (t < Ttraj*2/4) {
+        poly_filter(qd1,qd2,Ttraj/4,t-Ttraj/4); // qd1 -> q2
+      } else if (t < Ttraj*3/4) {
+        poly_filter(qd2,qd3,Ttraj/4,t-Ttraj*2/4); // qd2 -> qd3
+      } else {
+        poly_filter(qd3,q0,Ttraj/4,t-Ttraj*3/4); // qd3 -> q0
+      }
+    } else {
+      elapsed_time = 0.0;
+      cycle_count = cycle_count + 1; 
+    }
   }
 
   void poly_filter(const Eigen::Vector2d& q0, const Eigen::Vector2d& qd, double T, double t){

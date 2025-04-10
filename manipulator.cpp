@@ -73,12 +73,12 @@ namespace Manipulator {
                                 const Eigen::Vector2d& G, 
                                 const Eigen::Matrix2d& J, 
                                 const Eigen::Vector2d& Fext) {
-      float Fc1 = 0.35;  // Coulomb friction for joint 1
-      float Fc2 = 0.2;  // Coulomb friction for joint 2
-      float Fv1 = 0.2; // Viscous friction coefficient for joint 1
+      float Fs1 = 0.3;   // Static friction for joint 1
+      float Fs2 = 0.3;   // Static friction for joint 2 0.2
+      float Fc1 = 0.8 * 0.3;  // Coulomb friction for joint 1
+      float Fc2 = 0.8 * 0.3;  // Coulomb friction for joint 2 0.8 * 0.2
+      float Fv1 = 0.1; // Viscous friction coefficient for joint 1
       float Fv2 = 0.1; // Viscous friction coefficient for joint 2
-      float Fs1 = 0.7;   // Static friction for joint 1
-      float Fs2 = 0.4;   // Static friction for joint 2
 
       float stiction_threshold = 1e-3; // 정지 마찰을 고려할 속도 임계값
 
