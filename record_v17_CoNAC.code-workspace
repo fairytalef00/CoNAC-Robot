@@ -1,15 +1,19 @@
 {
 	"folders": [
 		{
+			"name": "record_v17_CoNAC",
 			"path": "../../../../Desktop/record_v17_CoNAC"
 		},
 		{
+			"name": "CoNAC_Robot",
 			"path": "."
 		},
 		{
+			"name": "record_v17_CoNAC",
 			"path": "../record_v17_CoNAC"
 		},
 		{
+			"name": "CoNAC",
 			"path": "../../Documents/Arduino/libraries/CoNAC"
 		}
 	],

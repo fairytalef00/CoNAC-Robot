@@ -4,8 +4,8 @@
 
 namespace CoNAC_Params {
     double u_ball = 12.5f;      
-    double alp1 = 1;        
-    double alp2 = 0.8;        
+    double w1 = 1;        
+    double w2 = 0.8;        
     double beta[8] = {1e-3, 1e-3, 1e-3, 10, 10, 10, 10, 10};    
     double th_max[3] = {11, 12, 13};    
     double B[4] = {1, 0, 0, 1};  
@@ -114,19 +114,20 @@ void ctrl_wrapper(const int CONTROL_NUM, const Eigen::Vector2d& q, const Eigen::
     Vector2Double8d(lbd, lbd_arr);
 
    // Aux 함수 호출
-    CoNAC(q_arr, r_arr, qdot_arr, 
-        rdot_arr, th_arr, lbd_arr, zeta_arr,
-        A_zeta, B_zeta, alp1, alp2, 
+    CoNAC(q_arr, r_arr, qdot_arr, rdot_arr, 
+        th_arr, lbd_arr, 
+        zeta_arr, A_zeta, B_zeta, 
+        w1, w2, 
         ctrl_dt, Lambda_arr, th_max, 
         u_ball, beta, u1_max, u2_max, 
         CONTROL_NUM, out_arr, Vn_arr);
     
-    // void CoNAC(const double x1[2], const double xd1[2], const double x2[2],
-    //     const double xd2[2], double th[58], double lbd[8], double zeta[2],
-    //     const double A_zeta[4], const double B_zeta[4], double alp1,double alp2,
-    //     double ctrl_dt, const double Lambda[4], const double th_max[3],
-    //     double u_ball, const double beta[8], double uMax1, double uMax2,
-    //     double CONTROL_NUM, double out[2], double Vn[3])
+        // void CoNAC(const double x1[2], const double xd1[2], const double x2[2],
+        //     const double xd2[2], double th[146], double lbd[8], double zeta[2],
+        //     const double A_zeta[4], const double B_zeta[4], double w1, double w2,
+        //     double ctrl_dt, const double Lambda[4], const double th_max[3],
+        //     double u_ball, const double beta[8], double uMax1, double uMax2,
+        //     double CONTROL_NUM, double out[2], double Vn[3])
 
     // double → Eigen 변환
     u   = Double2Vector2d(out_arr);
@@ -138,7 +139,7 @@ void initializeCoNAC() {
     using namespace CoNAC_Data;
 
     // 배열 초기화
-    for (int i = 0; i < 58; ++i) {
+    for (int i = 0; i < 146; ++i) {
         th_arr[i] = 0.0;
     }
     for (int i = 0; i < 4; ++i) {
@@ -158,7 +159,7 @@ void initializeCoNAC() {
     Vn.setZero();
 
     std::srand(18);
-    for (int i = 0; i < 58; ++i) {
+    for (int i = 0; i < 146; ++i) {
         double random = static_cast<double>(std::rand()) / RAND_MAX;
         double val = (random - 0.5) * 1e-1;
         th_arr[i] = std::round(val * 1e7) / 1e7; 

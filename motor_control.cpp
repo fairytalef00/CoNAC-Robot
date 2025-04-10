@@ -335,13 +335,13 @@ void handleInputCommand(const String& input) {
         double val = input.substring(7).toFloat();
         CoNAC_Params::u2_max = val;
     }
-    else if (input.startsWith("alp1=")) {
-        double val = input.substring(5).toFloat();
-        CoNAC_Params::alp1 = val;
+    else if (input.startsWith("w1=")) {
+        double val = input.substring(3).toFloat();
+        CoNAC_Params::w1 = val;
     }
-    else if (input.startsWith("alp2=")) {
-        double val = input.substring(5).toFloat();
-        CoNAC_Params::alp2 = val;
+    else if (input.startsWith("w2=")) {
+        double val = input.substring(3).toFloat();
+        CoNAC_Params::w2 = val;
     }
     else if (input.startsWith("B=") || input.startsWith("Lambda_arr=") ||
             input.startsWith("th_max=") || input.startsWith("beta=")) {

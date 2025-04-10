@@ -30,7 +30,7 @@ unsigned long lastPrintTimeCtrlExec = 0;
 unsigned long lastREST1timeState = 0;
 unsigned long lastREST2timeState = 0;
 
-// 타이머 및 실행 시간 추적 변수
+// 타이머 및 실행 시간 추적 변수2
 HardwareTimer SimTimer(2);     // TIM2: Control Loop
 HardwareTimer TrajectoryTimer(3);  // TIM3: Trajectory Loop
 HardwareTimer ControlTimer(4);
@@ -45,7 +45,7 @@ void initializeSim(){
   using namespace CoNAC_Params;
   using namespace CoNAC_Data;
   std::srand(18);
-  for (int i = 0; i < 58; ++i) {
+  for (int i = 0; i < 146; ++i) {
     double random = static_cast<double>(std::rand()) / RAND_MAX;
     double val = (random - 0.5) * 1e-1;
     th_arr[i] = std::round(val * 1e7) / 1e7; 
@@ -232,7 +232,7 @@ void SimLoop() {
     case HOME : 
       if (prevMode != HOME) {
           std::srand(18);
-          for (int i = 0; i < 58; ++i) {
+          for (int i = 0; i < 146; ++i) {
             double random = static_cast<double>(std::rand()) / RAND_MAX;
             double val = (random - 0.5) * 1e-1;
             th_arr[i] = std::round(val * 1e7) / 1e7; 

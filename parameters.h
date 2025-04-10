@@ -20,7 +20,7 @@ extern unsigned long lastPrintTimeLimit;
 
 
 // ✅ 고정된 상수 값
-PARAMETER_CONST float ctrl_dt = 0.004;             // 제어 루프 주기 [s]
+PARAMETER_CONST float ctrl_dt = 0.01;             // 제어 루프 주기 [s]
 PARAMETER_CONST float sim_dt  = 0.0004f;       // 시뮬레이션 루프 주기 [s]
 PARAMETER_CONST float traj_dt = 0.01f;        // 궤적 루프 주기 [s]
 PARAMETER_CONST float printperiod = 0.1f;     // 출력 주기 [s]
