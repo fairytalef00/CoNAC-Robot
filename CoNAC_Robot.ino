@@ -45,7 +45,7 @@ void initializeSim(){
   using namespace CoNAC_Params;
   using namespace CoNAC_Data;
   std::srand(18);
-  for (int i = 0; i < 146; ++i) {
+  for (int i = 0; i < 58; ++i) {
     double random = static_cast<double>(std::rand()) / RAND_MAX;
     double val = (random - 0.5) * 1e-1;
     th_arr[i] = std::round(val * 1e7) / 1e7; 
@@ -232,7 +232,7 @@ void SimLoop() {
     case HOME : 
       if (prevMode != HOME) {
           std::srand(18);
-          for (int i = 0; i < 146; ++i) {
+          for (int i = 0; i < 58; ++i) {
             double random = static_cast<double>(std::rand()) / RAND_MAX;
             double val = (random - 0.5) * 1e-1;
             th_arr[i] = std::round(val * 1e7) / 1e7; 
