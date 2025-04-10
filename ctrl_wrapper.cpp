@@ -4,6 +4,8 @@
 
 namespace CoNAC_Params {
     double u_ball = 12.5f;      
+    double u1_max = 12.2f;
+    double u2_max = 11.2f;
     double alp1 = 1;        
     double alp2 = 0.8;        
     double beta[8] = {1e-3, 1e-3, 1e-3, 10, 10, 10, 10, 10};    
@@ -12,8 +14,6 @@ namespace CoNAC_Params {
     double Lambda_arr[4] = {5, 0, 0, 5};
     double A_zeta[4] = {-10, 0, 0, -10}; // Aux. System Matrix 
     double B_zeta[4] = {100, 0, 0, 100}; // Aux. Input Matrix
-    double u1_max = 12.2f;
-    double u2_max = 11.2f;
 }
 
 namespace CoNAC_Data {

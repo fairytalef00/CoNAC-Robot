@@ -24,7 +24,7 @@ namespace Trajectory {
   double MAX_CYCLE_NUM = 2.0; // 최대 사이클 수
   // double MAX_CYCLE_NUM = 5.0; // 최대 사이클 수
   double rep_count = 0.0;  // 에피소드 카운터; MS
-  double MAX_REP_NUM = 3.0; // 최대 에피소드 수
+  double MAX_REP_NUM =2;
 
   // 초기화 함수
   void initializeTrajectory() {
@@ -35,8 +35,6 @@ namespace Trajectory {
 
       q0 = q;
       qdot0.setZero();
-
-
       elapsed_time = 0.0;
   }
 
@@ -63,6 +61,7 @@ namespace Trajectory {
           // 경로 완료
           elapsed_time = 0.0;
           is_trajectory_active = false;
+          CONTROL_FLAG = STANDBY;
       }
   }
 
@@ -106,26 +105,25 @@ namespace Trajectory {
       }
   }
 
-  // TODO 에피소드 다음거로 안넘어감
-  void generateReference2(double dt) {
-    if (rep_count >= MAX_REP_NUM)
-    {
-      is_trajectory_active = false; 
-      elapsed_time = 0.0;
-      rep_count = 0.0;
-      cycle_count = 0.0;
-      CONTROL_FLAG = REST2;
-      return;
-    }
+  // void generateReference2(double dt) {
+  //   if (rep_count >= MAX_REP_NUM)
+  //   {
+  //     is_trajectory_active = false; 
+  //     elapsed_time = 0.0;
+  //     rep_count = 0.0;
+  //     cycle_count = 0.0;
+  //     CONTROL_FLAG = REST2;
+  //     return;
+  //   }
     
-    if (cycle_count >= MAX_CYCLE_NUM) {
-      elapsed_time = 0.0;
-      cycle_count = 0.0;
-      rep_count += 1; 
-    }
+  //   if (cycle_count >= MAX_CYCLE_NUM) {
+  //     elapsed_time = 0.0;
+  //     cycle_count = 0.0;
+  //     rep_count += 1; 
+  //   }
 
-    generateReference1(dt);
-  }
+  //   generateReference1(dt);
+  // }
 
   void generateReference3(double dt) {
     using namespace Manipulator;
@@ -225,15 +223,10 @@ namespace Trajectory {
 
   void traj_flag() {
     using namespace Manipulator;
-    q0 = q;
-    qdot0 = qdot;
-  
-    r = q0;
-    rdot = qdot0;
-    rddot.setZero();
-  
+
+    initializeTrajectory();
     cycle_count = 0;
-    rep_count = 0;
+    rep_count = 0.0;
     elapsed_time = 0.0;
   
     is_trajectory_active = true;

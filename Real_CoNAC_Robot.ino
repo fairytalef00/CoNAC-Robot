@@ -1,5 +1,3 @@
-// SIBAL nomma
-
 #include "CAN.h"
 #include <HardwareTimer.h>
 #include "motor_control.h"
@@ -26,7 +24,6 @@ float MAX_repet = 16.0;
 
 // 1초 타이머
 unsigned long lastPrintTimeCtrlExec = 0;
-
 unsigned long lastREST1timeState = 0;
 unsigned long lastREST2timeState = 0;
 
@@ -39,59 +36,24 @@ ControlMode prevMode = STANDBY;
 
 unsigned int CONTROL_NUM = 1;
 
-void initializeSim(){
-  using namespace Trajectory;
-  using namespace Manipulator;
-  using namespace CoNAC_Params;
-  using namespace CoNAC_Data;
-  std::srand(18);
-  for (int i = 0; i < 58; ++i) {
-    double random = static_cast<double>(std::rand()) / RAND_MAX;
-    double val = (random - 0.5) * 1e-1;
-    th_arr[i] = std::round(val * 1e7) / 1e7; 
-  }
-  Vn.setZero();
-  lbd.setZero();
-  q << - M_PI/2, 0;
-  qdot.setZero();
-  initializeTrajectory(); // Trajectory 초기화
-
-  u.setZero();
-}
 
 void setup() {
-  delay(1000);
+  delay(500);
   Serial.begin(115200);
 
   using namespace CoNAC_Params;
   using namespace CoNAC_Data;
   initializeCoNAC();
+  delay(500);
 
-  // Serial.println("CoNAC initialized");
-  
-  // Control Timer 설정 (500Hz)
-  SimTimer.pause();
-  SimTimer.setPeriod(simPeriodMicros);  // Control loop 주기 설정
-  SimTimer.attachInterrupt(SimLoop);
-  SimTimer.refresh();
-  SimTimer.resume();
+  // if (!CanBus.begin(CAN_BAUD_1000K)) {
+  //   Serial.println("Failed to initialize CAN!");
+  //   while (1)
+  //     ;
+  // }
+  // Serial.println("CAN initialized successfully!");
 
-  // Trajectory Timer 설정 (100Hz)
-  TrajectoryTimer.pause();
-  TrajectoryTimer.setPeriod(trajPeriodMicros);  // Trajectory loop 주기 설정
-  TrajectoryTimer.attachInterrupt(trajectoryLoop);
-  TrajectoryTimer.refresh();
-  TrajectoryTimer.resume();
-
-  ControlTimer.pause();
-  ControlTimer.setPeriod(ctrlPeriodMicros);
-  ControlTimer.attachInterrupt(controlLoop);
-  ControlTimer.refresh();
-  ControlTimer.resume();
-
-
-  // Serial.println("Simulation & Trajectory timer Start");
-
+  initializeTimer(); // 타이머 초기화
   delay(500);
 
   using namespace Manipulator;
@@ -99,49 +61,44 @@ void setup() {
 
   Kd = Eigen::Vector2d(100, 100).asDiagonal();
   Dd = Eigen::Vector2d(10, 10).asDiagonal();
-
-  // initial point
-  q << -M_PI/2, 0;
-
-  // Serial.println("Manipulator Library initialized");
-
   delay(500);
+
+  // // initial point
+  // q << -M_PI/2, 0;
 
   using namespace Trajectory;
   initializeTrajectory();
-  // Serial.println("Trajectory Library initialized");
 
   delay(1000);
-  // Serial.println("Loop... start");
 }
 
 // Trajectory Loop
-void trajectoryLoop() {
+void trajectoryLoop() 
+{
   using namespace Trajectory;
 
   switch (CONTROL_FLAG) {
-    case STANDBY:
+    case STANDBY:   // (0)
       break;
 
-    case HOME:
+    case HOME:      // (1)
       generateReference0(traj_dt); 
       break;
 
-    case REST1:
-      break;
-
-    case REST2:
-      break;
-
-    case EXECUTE1:  // CoNAC cycle1
-    case EXECUTE2:  // Aux cycle1
-
+    case EXECUTE1:  // CoNAC cycle1 (2)
+    case EXECUTE2:  // Aux cycle1 (3)
       generateReference1(traj_dt); 
       break;
 
-    case EXECUTE3:  //CoNAC episode1
-    case EXECUTE4:  // Aux episode1  
-    generateReference3(traj_dt); 
+    case EXECUTE3:  // CoNAC episode1 (4)
+    case EXECUTE4:  // Aux episode1   (5)
+      generateReference3(traj_dt); 
+      break;
+
+    case REST1:     // (6)
+      break;
+
+    case REST2:     // (7)
       break;
 
     default:
@@ -150,7 +107,8 @@ void trajectoryLoop() {
 }
 
 // Trajectory Loop
-void controlLoop() {
+void controlLoop() 
+{
   using namespace Trajectory;
   using namespace Manipulator;
   using namespace CoNAC_Params;
@@ -160,51 +118,63 @@ void controlLoop() {
   switch (CONTROL_FLAG){
 
     case STANDBY : 
-      u.setZero();
-      u_sat.setZero();
-      break;
-
-      case REST1:
-      u.setZero();
-      u_sat.setZero();
-      break;
-
-      case REST2:
-      u.setZero();
-      u_sat.setZero();
+        initializeTrajectory();
+        u.setZero();
+        u_sat.setZero();
       break;
 
     case HOME :
       computeDYN(M, C, G, q, qdot);
       u = M * (rddot + Dd * (rdot - qdot) + Kd * (r - q)) + C * qdot + G;
+      u_sat = saturation(u);
+
+      break;
+
+    case REST1:
+      u.setZero();
       u_sat.setZero();
       break;
 
-    case EXECUTE1 :
-    case EXECUTE3 :
-      CONTROL_NUM = 1;
-      ctrl_wrapper(CONTROL_NUM, q, qdot, r, rdot, u, lbd, Vn);
-      u_sat = saturation(u);
+    case REST2:
+      u.setZero();
+      u_sat.setZero();
       break;
 
-    case EXECUTE2 :
+    case EXECUTE1 : // CoNAC
+    case EXECUTE3 :
+        CONTROL_NUM = 1;
+        ctrl_wrapper(CONTROL_NUM, q, qdot, r, rdot, u, lbd, Vn);
+        u_sat = saturation(u);
+      break;
+
+    case EXECUTE2 : // Aux
     case EXECUTE4 :
-      CONTROL_NUM = 2;
-      ctrl_wrapper(CONTROL_NUM, q, qdot, r, rdot, u, lbd, Vn);
-      u_sat = saturation(u);
+        CONTROL_NUM = 2;
+        ctrl_wrapper(CONTROL_NUM, q, qdot, r, rdot, u, lbd, Vn);
+        u_sat = saturation(u);
       break;
 
     default:
-        return;
+      return;
   }
 
   ctrlEndTime = micros();
   CtrlTime = (ctrlEndTime - ctrlStartTime);
+
+  // Safety check for joint limits
+  if (u_sat.array().isNaN().any()) {
+    Serial.println("Warning: u contains NaN. Resetting to zero.");
+    u_sat.setZero();
+  }
+
+  // send_torque_command1(1, u_sat(0));
+  // send_torque_command2(2, u_sat(1));
 }
 
 
 // Main
-void SimLoop() {
+void MainLoop() {
+  float elapsedTime = millis() / 1000.0f;  // 진행 시간 (초 단위)
   using namespace Manipulator;
   using namespace Trajectory;
   using namespace CoNAC_Data;
@@ -226,9 +196,11 @@ void SimLoop() {
         }
         A_zeta[0] = -10;
         A_zeta[2] = -10;
+        lastREST1timeState = 0;
+        lastREST2timeState = 0;
       }
-      enterStandbyMode();
       break;
+
     case HOME : 
       if (prevMode != HOME) {
           std::srand(18);
@@ -238,7 +210,6 @@ void SimLoop() {
             th_arr[i] = std::round(val * 1e7) / 1e7; 
         }
       }
-      enterExecuteMode();    
       break;
 
     case REST1 : 
@@ -249,8 +220,6 @@ void SimLoop() {
           beta[i] += 5;
         }
       }
-
-      enterStandbyMode();
 
       // 2초 대기 후 실행
       if (millis() - lastREST1timeState >= 2000) {
@@ -280,8 +249,6 @@ void SimLoop() {
 
       }
 
-      enterStandbyMode();
-
       // 2초 대기 후 실행
       if (millis() - lastREST2timeState >= 2000) {
         REST2_count++;
@@ -294,35 +261,30 @@ void SimLoop() {
         }
         lastREST2timeState = millis();
       }
-
       break;
 
     case EXECUTE1 :
       if (prevMode != EXECUTE1) {
         // Serial.println("Start_Record");
       }  
-      enterExecuteMode();
       break;
 
     case EXECUTE2 :
       if (prevMode != EXECUTE2) {
         // Serial.println("Start_Record");
       }  
-      enterExecuteMode();
       break;
 
     case EXECUTE3 :
       if (prevMode != EXECUTE3) {
         // Serial.println("Start_Record");
       }  
-      enterExecuteMode();
       break;
 
     case EXECUTE4 :
       if (prevMode != EXECUTE4) {
         // Serial.println("Start_Record");
       }  
-      enterExecuteMode();
       break;
 
     default:
@@ -330,34 +292,8 @@ void SimLoop() {
   }
 
   prevMode = CONTROL_FLAG; // 현재 모드 저장
-}
 
-void enterStandbyMode() {
-  float elapsedTime = millis() / 1000.0f;  // 진행 시간 (초 단위)
-  using namespace Manipulator;
-  using namespace Trajectory;
-  using namespace CoNAC_Params;
-  using namespace CoNAC_Data;
-
-  q << - M_PI/2, 0;
-  qdot.setZero();
-  q0 =q;
-  qdot0.setZero();
-  r << - M_PI/2, 0;
-  rdot.setZero();
-  u.setZero();
-  u_sat.setZero();
-
-
-  updateDynamics(sim_dt);
-}
-
-
-void enterExecuteMode() {
-  float elapsedTime = millis() / 1000.0f;  // 진행 시간 (초 단위)
-  using namespace Manipulator;
-  using namespace CoNAC_Data;
-
+  // updateState();
   updateDynamics(sim_dt);
 }
 
@@ -373,11 +309,17 @@ void loop() {
   // ✅ 2ms마다 printState() 실행
   if (millis() - lastPrintTimeState >= printIntervalMillis) {
     printState(elapsedTime);
-    // printGain();
+    checkJointLimits();
     lastPrintTimeState = millis();
   }
-}
 
+  // ✅ 1초마다 printFreq() 실행
+  if (millis() - lastPrintTimeFreq >= 2000) {
+    printFreq();
+    printGain();
+    lastPrintTimeFreq = millis();
+  }
+}
 
 void printState(float elapsedTime) {
   using namespace Manipulator;
@@ -440,12 +382,20 @@ void printGain() {
     Serial.print(u_ball);
     Serial.print(" ");
 
-    Serial.print("cycle_count ");
-    Serial.print(cycle_count);
+    Serial.print("u_max ");
+    Serial.print(u1_max);
+    Serial.print(" ");
+    Serial.print(u2_max);
+    Serial.print(" ");
+
+    Serial.print("alp ");
+    Serial.print(alp1);
+    Serial.print(" ");
+    Serial.print(alp2);
     Serial.print(" ");
 
     Serial.print("beta ");
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 8; i++) {
       Serial.print(beta[i]);
       Serial.print(" ");
     }
@@ -462,35 +412,79 @@ void printGain() {
       Serial.print(" ");
     }
 
+    Serial.print("A_zeta ");
+    Serial.print(A_zeta[0]);
+    Serial.print(" ");
+
     Serial.print("th_arr ");
     for (int i = 0; i < 3; i++) {
       Serial.print(th_arr[i],4);
       Serial.print(" ");
     }
+
     Serial.println();
-
 }
-
 
 void checkJointLimits() {
   using namespace Manipulator;
 
   bool joint_limit_exceeded =
-    q(0) > 2.0 || q(0) < -2.0 ||
-    q(1) > 2.1 || q(1) < -2.5 ||
-    qdot(0) < -2.5 || qdot(0) > 2.5 ||
-    qdot(1) < -2.5 || qdot(1) > 2.5;
+    q(0) > 1.7 || q(0) < -1.7 ||
+    q(1) > 1.7 || q(1) < -2.5 ||
+    qdot(0) < -3.5 || qdot(0) > 3.5 ||
+    qdot(1) < -3.5 || qdot(1) > 3.5;
 
   if (joint_limit_exceeded) {
     if (CONTROL_FLAG == STANDBY) {
       Serial.println("Joint limit exceeded!");
     } else {
-      Serial.println("Joint limit exceeded! Entering Standby Mode...");
-      CONTROL_FLAG = STANDBY;  
+      Serial.println("Joint limit exceeded!");
+      CONTROL_FLAG = HOME;  
     }
   }
 }
 
+void initializeSim(){
+  using namespace Trajectory;
+  using namespace Manipulator;
+  using namespace CoNAC_Params;
+  using namespace CoNAC_Data;
+  std::srand(18);
+  for (int i = 0; i < 58; ++i) {
+    double random = static_cast<double>(std::rand()) / RAND_MAX;
+    double val = (random - 0.5) * 1e-1;
+    th_arr[i] = std::round(val * 1e7) / 1e7; 
+  }
+  Vn.setZero();
+  lbd.setZero();
+  // q << - M_PI/2, 0;
+  // qdot.setZero();
+  initializeTrajectory(); // Trajectory 초기화
 
+  u.setZero();
+  u_sat.setZero();
+}
 
+void initializeTimer(){
+    // Control Timer 설정 (500Hz)
+    SimTimer.pause();
+    SimTimer.setPeriod(simPeriodMicros);  // Control loop 주기 설정
+    SimTimer.attachInterrupt(MainLoop);
+    SimTimer.refresh();
+    SimTimer.resume();
+  
+    // Trajectory Timer 설정 (100Hz)
+    TrajectoryTimer.pause();
+    TrajectoryTimer.setPeriod(trajPeriodMicros);  // Trajectory loop 주기 설정
+    TrajectoryTimer.attachInterrupt(trajectoryLoop);
+    TrajectoryTimer.refresh();
+    TrajectoryTimer.resume();
+  
+    // Trajectory Timer 설정 (250Hz)
+    ControlTimer.pause();
+    ControlTimer.setPeriod(ctrlPeriodMicros);
+    ControlTimer.attachInterrupt(controlLoop);
+    ControlTimer.refresh();
+    ControlTimer.resume();
+}
 

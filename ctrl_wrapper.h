@@ -4,12 +4,10 @@
 #include "trajectory.h" //
 #include <stdlib.h>
 
-
-
 namespace CoNAC_Params {
     extern double u_ball;      
-    extern double w1;  
-    extern double w2;        
+    extern double alp1;  
+    extern double alp2;        
     extern double beta[8];    
     extern double th_max[3];    
     extern double B[4];       

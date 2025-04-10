@@ -7,6 +7,8 @@
 #include <CAN.h>
 #include <math.h>
 
+extern bool isStandbyMode;
+
 enum ControlMode {
   STANDBY = 0,
   HOME = 1,
@@ -35,39 +37,37 @@ constexpr float T_MAX= 65.0f;    // 최대 토크
 
 // 함수 선언
 #define TIMEOUT_MS 2  // 500Hz 동기화를 위한 2ms 타임아웃
-#define NUM_IDS 3  // ID 개수 
+#define NUM_IDS 2  // ID 개수 
 
 typedef struct State {
-    bool received;  // 데이터가 수신되었는지 여부
-    uint8_t data[8];
-    unsigned long lastReceivedTime;  // 마지막 수신 시간
-} State;
+  bool received;     // 수신 완료 여부
+  bool processed;    // 이번 step에서 이미 처리했는지 여부
+  uint8_t data[8];
+  unsigned long lastReceivedTime;
+};
+
 extern State state[NUM_IDS];
-extern unsigned int receiveCounts[NUM_IDS]; // ✅ 수신 횟수 배열 선언
+extern unsigned long receiveCounts[NUM_IDS];
+extern unsigned long processedCounts[NUM_IDS];
 
 // 함수 선언
 void initializeDevice();
 void onCANReceive(can_message_t *msg) ;
 void updateState() ;
-void processStep(State state[]) ;
-void resetState() ;
 
 int float_to_uint(float x, float x_min, float x_max, unsigned int bits);
 
 void pack_cmd(can_message_t *msg, float p_des, float v_des, float kp, float kd, float t_ff);
-
 void unpack_reply(uint8_t* data, int8_t index);
 void motor_receive1(const uint8_t* data) ;
 void motor_receive2(const uint8_t* data) ;
-void ft_receive1(const uint8_t* data) ;
-void ft_receive2(const uint8_t* data) ;
 
 void printFreq(); 
 
 void set_origin_command(uint8_t controller_id);
-
 void send_torque_command1(uint8_t motor_id, float torque);
 void send_torque_command2(uint8_t motor_id, float torque);
+
 void rebootSystem();
 void updateState();
 void ftbiasUpdate(); 

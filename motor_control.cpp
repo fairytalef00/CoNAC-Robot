@@ -1,9 +1,27 @@
 #include "motor_control.h"
 #include "ctrl_wrapper.h"
 
+bool isStandbyMode = true;
 State state[NUM_IDS];
-unsigned int receiveCounts[NUM_IDS] = {0};
-uint32_t trackedIDs[NUM_IDS] = { 0x01, 0x02, 0x04 };  
+unsigned long receiveCounts[NUM_IDS] = {0};
+unsigned long processedCounts[NUM_IDS] = {0};
+
+#define BUFFER_SIZE 10  // 각 채널별 버퍼 크기 (필요에 따라 조절)
+
+volatile unsigned long matchCount_0x2901 = 0;
+volatile unsigned long matchCount_0x2902 = 0;
+volatile unsigned long lastRxTime_0x2901 = 0;
+volatile unsigned long lastRxTime_0x2902 = 0;
+
+typedef struct {
+    uint8_t data[8];
+    unsigned long timestamp;
+} CANMessageBuffer;
+
+volatile CANMessageBuffer canBuffer[NUM_IDS][BUFFER_SIZE];
+volatile int bufferWriteIndex[NUM_IDS] = {0, 0};
+volatile int bufferReadIndex[NUM_IDS]  = {0, 0};
+volatile int bufferCount[NUM_IDS]      = {0, 0};
 
 ControlMode CONTROL_FLAG = STANDBY;
 
@@ -28,107 +46,69 @@ void initializeDevice(){
     state[1].data[4] = t_zero1 & 0xFF;
     state[1].received = true;      
 
-    // ✅ ft_receive1() 에 맞춘 초기값
-    int fx_zero = 30000, fy_zero = 30000, fz_zero = 30000;
-    state[2].data[0] = (fx_zero >> 8) & 0xFF;
-    state[2].data[1] = fx_zero & 0xFF;
-    state[2].data[2] = (fy_zero >> 8) & 0xFF;
-    state[2].data[3] = fy_zero & 0xFF;
-    state[2].data[4] = (fz_zero >> 8) & 0xFF;
-    state[2].data[5] = fz_zero & 0xFF;
-    state[2].received = true;
     // CAN 인터럽트 핸들러 설정 
     CanBus.attachRxInterrupt(onCANReceive);
 
-
     delay(1000);
-
 }
 
-// ✅ CAN 메시지 수신 인터럽트 핸들러
 void onCANReceive(can_message_t *msg) {
-    unsigned long currentTime = millis();
-    
+    unsigned long now = millis();
+    int channel = -1;
     switch (msg->id) {
-        case 0x2901:
-            memcpy(state[0].data, msg->data, 8);
-            state[0].received = true;
-            state[0].lastReceivedTime = currentTime;
-            receiveCounts[0]++;
-            break;
-        case 0x2902:
-            memcpy(state[1].data, msg->data, 8);
-            state[1].received = true;
-            state[1].lastReceivedTime = currentTime;
-            receiveCounts[1]++;
-            break;
-        case 0x04:
-            memcpy(state[2].data, msg->data, 8);
-            state[2].received = true;
-            state[2].lastReceivedTime = currentTime;
-            receiveCounts[2]++;
-            break;
-        default:
-            return;
+        case 0x2901: channel = 0; break;
+        case 0x2902: channel = 1; break;
+        default: return; // 알 수 없는 ID는 무시
+    }
+    
+    int w = bufferWriteIndex[channel];
+    memcpy((void*)canBuffer[channel][w].data, msg->data, 8);
+    canBuffer[channel][w].timestamp = now;
+    bufferWriteIndex[channel] = (w + 1) % BUFFER_SIZE;
+    if (bufferCount[channel] < BUFFER_SIZE) {
+        bufferCount[channel]++;
+    }
+    
+    // 기존 진단 카운터 업데이트 (채널별)
+    switch (channel) {
+        case 0: matchCount_0x2901++; lastRxTime_0x2901 = now; receiveCounts[0]++; break;
+        case 1: matchCount_0x2902++; lastRxTime_0x2902 = now; receiveCounts[1]++; break;
     }
 }
 
-void updateState() {
-    unsigned long currentTime = millis();
-    bool anyReceived = false;  // 하나라도 데이터가 수신되었는지 체크
 
-    for (int i = 0; i < NUM_IDS; i++) {
-        if (!state[i].received) {
-            if (currentTime - state[i].lastReceivedTime > TIMEOUT_MS) {
-                // ✅ TIMEOUT 발생: 이전 값 유지
-                state[i].received = true;  // Step 진행을 위해 true 설정
+
+// =================== 주기 처리 루프 ===================
+void updateState() {
+    for (int channel = 0; channel < NUM_IDS; channel++) {
+        while (true) {
+            noInterrupts();  // 임계영역 진입: 공유 변수 접근 보호
+            if (bufferCount[channel] <= 0) {
+                interrupts();  // 임계영역 종료
+                break;
             }
-        } else {
-            anyReceived = true;  // 하나라도 데이터를 받았다면 Step 진행 가능
+            int r = bufferReadIndex[channel];
+            // 버퍼에서 데이터를 안전하게 복사
+            uint8_t data[8];
+            memcpy(data, (void*)canBuffer[channel][r].data, 8);
+            // 인덱스 및 카운트 업데이트
+            bufferReadIndex[channel] = (r + 1) % BUFFER_SIZE;
+            bufferCount[channel]--;
+            interrupts();  // 임계영역 종료
+
+            // 임계영역 외부에서 unpack 처리 (시간 소요가 있는 작업은 여기서 수행)
+            unpack_reply(data, channel);
+            processedCounts[channel]++;
         }
     }
-
-    // ✅ 하나라도 데이터가 도착하면 Step 처리 진행
-    if (anyReceived) {
-        processStep(state);
-        resetState();
-    }
 }
 
-// ✅ 500Hz 동기화 처리
-void processStep(State state[]) {
-    unpack_reply(state[0].data, 0);
-    unpack_reply(state[1].data, 1);
-    unpack_reply(state[2].data, 2);
-}
 
-// ✅ Step이 끝나면 상태 초기화
-void resetState() {
-    for (int i = 0; i < NUM_IDS; i++) {
-        state[i].received = false;
-    }
-}
-
-// CAN 메시지에서 모터 상태를 해석
 void unpack_reply(uint8_t* data, int8_t index) {
     using namespace Manipulator;
-
     switch (index) {
-        case 0:  
-            motor_receive1(data);
-            return;
-        case 1: 
-            motor_receive2(data);
-            return;
-        case 2: 
-            ft_receive1(data);
-            return;
-        case 3: 
-            ft_receive2(data);
-            return;
-        default: 
-            return;
-        
+        case 0: motor_receive1(data); break;
+        case 1: motor_receive2(data); break;
     }
 }
 
@@ -163,36 +143,6 @@ void motor_receive2(const uint8_t* data) {
     tau(1) = (float)(1 / 0.7* cur_int * 0.01f);  // Torque N*m
 }
 
-void ft_receive1(const uint8_t* data) { 
-    uint16_t fx_raw = (data[0] << 8) | data[1];
-    uint16_t fy_raw = (data[2] << 8) | data[3];
-    uint16_t fz_raw = (data[4] << 8) | data[5];
-
-    float fx = (float)fx_raw / 100.0f - 300.0f;
-    float fy = (float)fy_raw / 100.0f - 300.0f;
-    float fz = (float)fz_raw / 100.0f - 300.0f;
-
-    using namespace Manipulator;
-    Fraw(0) = fx - Fbias(0);
-    Fraw(1) = fy - Fbias(1);
-    Fraw(2) = fz - Fbias(2);
-}
-
-void ft_receive2(const uint8_t* data) {
-    uint16_t tx_raw = (data[0] << 8) | data[1];
-    uint16_t ty_raw = (data[2] << 8) | data[3];
-    uint16_t tz_raw = (data[4] << 8) | data[5];
-
-    float tx = (float)tx_raw / 500.0f - 50.0f;
-    float ty = (float)ty_raw / 500.0f - 50.0f;
-    float tz = (float)tz_raw / 500.0f - 50.0f;
-
-    using namespace Manipulator;
-    Traw(0) = tx - Tbias(0);
-    Traw(1) = ty - Tbias(1);
-    Traw(2) = tz - Tbias(2);
-}
-
 
 void pack_cmd(can_message_t *msg, float p_des, float v_des, float kp, float kd, float t_ff, uint8_t motor_id) {
     const uint8_t CONTROL_MODE_ID = 8;
@@ -214,17 +164,20 @@ void pack_cmd(can_message_t *msg, float p_des, float v_des, float kp, float kd, 
     msg->data[5] = v_int >> 4;
     msg->data[6] = ((v_int & 0xF) << 4) | (t_int >> 8);
     msg->data[7] = t_int & 0xFF;
+
+
 }
+
 
 // ✅ 수신 주파수 출력 함수
 void printFreq() {
     for (int i = 0; i < NUM_IDS; i++) {
         Serial.print("ID:");
-        Serial.print(trackedIDs[i], HEX);  // ✅ 실제 CAN ID 출력
-        Serial.print(" ");  
-        Serial.print(receiveCounts[i]);  // ✅ 해당 ID의 수신 횟수 출력
-        Serial.print(" ");  
-        receiveCounts[i] = 0;  // 카운트 초기화
+        Serial.print(i);
+        Serial.print(" ");  // ✅ ID와 주파수 사이에 공백 추가
+        Serial.print(processedCounts[i]);
+        Serial.print(" ");  // ✅ 다음 ID와 구분하기 위해 공백 추가
+        processedCounts[i] = 0;  // ✅ 주기 초기화
     }
     Serial.println();
 }
@@ -253,26 +206,18 @@ void set_origin_command(uint8_t motor_id) {
 // 토크 명령 전송
 void send_torque_command1(uint8_t motor_id, float torque) {
     can_message_t msg;
-    pack_cmd(&msg, 0.0, 0.0, 0.0, 0.0, 0.75 * torque, motor_id);
-    // pack_cmd(&msg, 0.0, 0.0, 0.0, 0.0, 0.6 * torque, motor_id);
+    pack_cmd(&msg, 0.0, 0.0, 0.0, 0.0, 0.70f * torque, motor_id);
     CanBus.write(msg.id, msg.data, 8, CAN_EXT_FORMAT);
 }
 void send_torque_command2(uint8_t motor_id, float torque) {
     can_message_t msg;
-    pack_cmd(&msg, 0.0, 0.0, 0.0, 0.0, 0.70 * torque, motor_id);
-    // pack_cmd(&msg, 0.0, 0.0, 0.0, 0.0, 0.5 * torque, motor_id);
+    pack_cmd(&msg, 0.0, 0.0, 0.0, 0.0, 0.70f * torque, motor_id);
     CanBus.write(msg.id, msg.data, 8, CAN_EXT_FORMAT);
 }
 
 // 시스템 리부트
 void rebootSystem() {
     NVIC_SystemReset();
-}
-
-void ftbiasUpdate() {
-    using namespace Manipulator;
-    Fbias = Fraw + Fbias;
-    Tbias = Traw + Tbias;
 }
 
 void handleInputCommand(const String& input) {
@@ -335,13 +280,13 @@ void handleInputCommand(const String& input) {
         double val = input.substring(7).toFloat();
         CoNAC_Params::u2_max = val;
     }
-    else if (input.startsWith("w1=")) {
+    else if (input.startsWith("alp1=")) {
         double val = input.substring(3).toFloat();
-        CoNAC_Params::w1 = val;
+        CoNAC_Params::alp1 = val;
     }
-    else if (input.startsWith("w2=")) {
+    else if (input.startsWith("alp2=")) {
         double val = input.substring(3).toFloat();
-        CoNAC_Params::w2 = val;
+        CoNAC_Params::alp2 = val;
     }
     else if (input.startsWith("B=") || input.startsWith("Lambda_arr=") ||
             input.startsWith("th_max=") || input.startsWith("beta=")) {
@@ -355,17 +300,17 @@ void handleInputCommand(const String& input) {
         if (varName == "B" || varName == "Lambda_arr") {
             int rowIdx = data.indexOf(';');
             if (rowIdx != -1) {
-                String row1 = data.substring(0, rowIdx);
-                String row2 = data.substring(rowIdx + 1);
+                String roalp1 = data.substring(0, rowIdx);
+                String roalp2 = data.substring(rowIdx + 1);
 
-                int col1 = row1.indexOf(',');
-                int col2 = row2.indexOf(',');
+                int col1 = roalp1.indexOf(',');
+                int col2 = roalp2.indexOf(',');
 
                 if (col1 != -1 && col2 != -1) {
-                    float a11 = row1.substring(0, col1).toFloat();
-                    float a12 = row1.substring(col1 + 1).toFloat();
-                    float a21 = row2.substring(0, col2).toFloat();
-                    float a22 = row2.substring(col2 + 1).toFloat();
+                    float a11 = roalp1.substring(0, col1).toFloat();
+                    float a12 = roalp1.substring(col1 + 1).toFloat();
+                    float a21 = roalp2.substring(0, col2).toFloat();
+                    float a22 = roalp2.substring(col2 + 1).toFloat();
 
                     if (varName == "B") {
                         CoNAC_Params::B[0] = a11;
