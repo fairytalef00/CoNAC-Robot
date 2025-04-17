@@ -149,17 +149,18 @@ class TauPlotGraph(QtWidgets.QWidget):
         self.tau1_data = []
         self.tau2_data = []
 
+
     def init_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 10, 20, 0)
         # Add a gray circle with radius 10 centered at the origin
         theta = np.linspace(0, 2 * np.pi, 100)
-        radius = 12.5
-        u1_max = 12.2
+        radius = 11.5
+        u1_max = 10.78
+        u2_max = 4.0  # 추가된 u2_max 값
 
         circle_x = radius * np.cos(theta)
         circle_y = radius * np.sin(theta)
-
 
         # ✅ OpenGL을 사용하도록 설정
         self.graph_widget = pg.PlotWidget()
@@ -201,8 +202,12 @@ class TauPlotGraph(QtWidgets.QWidget):
         self.circle_item = self.graph_widget.plot(circle_x, circle_y, pen=pg.mkPen(QColor('gray'), width=2, style=Qt.DashLine))
         self.line_item1 = pg.InfiniteLine(pos=-u1_max, angle=90, pen=line_pen)
         self.line_item2 = pg.InfiniteLine(pos=u1_max, angle=90, pen=line_pen)
+        self.line_item3 = pg.InfiniteLine(pos=-u2_max, angle=0, pen=line_pen)  # 추가된 y = -u2_max 직선
+        self.line_item4 = pg.InfiniteLine(pos=u2_max, angle=0, pen=line_pen)   # 추가된 y = u2_max 직선
         self.graph_widget.addItem(self.line_item1)
         self.graph_widget.addItem(self.line_item2)
+        self.graph_widget.addItem(self.line_item3)
+        self.graph_widget.addItem(self.line_item4)
 
 
     def update_graph(self):
@@ -215,12 +220,12 @@ class TauPlotGraph(QtWidgets.QWidget):
         tau2 = real_time_data['u2'][-10:] if len(real_time_data['u2']) >= 10 else real_time_data['u2']
 
         # Control flag가 2 또는 3일 때 데이터 누적
-        if CONTROL_FLAG in [2,3,4,5]:
+        if CONTROL_FLAG in [2,3,4,5,6]:
             self.tau1_data.append(tau1)
             self.tau2_data.append(tau2)
 
-        # Control flag가 6 또는 7일 때 데이터 초기화
-        elif CONTROL_FLAG in [0, 6, 7]:
+        # Control flag가 7 또는 8일 때 데이터 초기화
+        elif CONTROL_FLAG in [0, 7, 8]:
             self.tau1_data = []
             self.tau2_data = []
 
@@ -231,16 +236,16 @@ class TauPlotGraph(QtWidgets.QWidget):
 
         # 점과 점을 선으로 연결 (최대 10개의 점만 유지)
         if len(tau1_flat) > 1 and len(tau2_flat) > 1:
-            self.scatter_plot.setData(tau1_flat[-10:], tau2_flat[-10:])
+            self.scatter_plot.setData(tau1_flat[-20:], tau2_flat[-20:])
         elif len(tau1_flat) == 1 and len(tau2_flat) == 1:
             # 단일 점만 있을 경우 점만 표시
             self.scatter_plot.setData([tau1_flat[0]], [tau2_flat[0]])
-        if CONTROL_FLAG in [2, 3, 4, 5]:
+        if CONTROL_FLAG in [2, 3, 4, 5, 6]:
             self.tau1_data.append(tau1)
             self.tau2_data.append(tau2)
 
-        # Control flag가 6 또는 7일 때 데이터 초기화
-        elif CONTROL_FLAG in [0, 6, 7]:
+        # Control flag가 7 또는 8일 때 데이터 초기화
+        elif CONTROL_FLAG in [0, 7, 8]:
             self.tau1_data = []
             self.tau2_data = []
 
@@ -256,6 +261,10 @@ class TauPlotGraph(QtWidgets.QWidget):
         self.graph_widget.addItem(self.circle_item)
         self.graph_widget.addItem(self.line_item1)
         self.graph_widget.addItem(self.line_item2)
+        self.graph_widget.addItem(self.line_item3)
+        self.graph_widget.addItem(self.line_item4)
+
+
 
         # 점과 점을 선으로 연결 (최대 10개의 점만 유지)
         if len(tau1_flat) > 1 and len(tau2_flat) > 1:
@@ -304,6 +313,8 @@ class TimeSeriesGraph(QtWidgets.QWidget):
             'lbd6': {'color': 'black', 'linestyle': 'solid'}, 
             'lbd7': {'color': 'cyan', 'linestyle': 'solid'},
             'lbd8': {'color': 'magenta', 'linestyle': 'solid'},
+
+            'ctrltime': {'color': 'magenta', 'linestyle': 'solid'},
         }
 
         self.init_ui(default_selection)
@@ -328,8 +339,8 @@ class TimeSeriesGraph(QtWidgets.QWidget):
         self.graph_widget.getViewBox().setBorder(pg.mkPen('black', width=1))
         
         # ✅ x축 및 y축 라벨 (글씨 크기 및 색상 변경)
-        self.graph_widget.setLabel('bottom', '<b>Time (s)</b>', color='black', size='12pt')
-        font = QtGui.QFont("Arial", 12, QtGui.QFont.Bold)
+        # self.graph_widget.setLabel('bottom', '<b>Time (s)</b>', color='black', size='12pt')
+        font = QtGui.QFont("Arial", 10, QtGui.QFont.Bold)
         self.graph_widget.getAxis("left").setTickFont(font)
         self.graph_widget.getAxis("bottom").setTickFont(font)
         self.graph_widget.getAxis("left").setPen(pg.mkPen('black'))
@@ -344,11 +355,13 @@ class TimeSeriesGraph(QtWidgets.QWidget):
         # ✅ Y축 선택 드롭다운 추가 (오른쪽 상단)
         self.dropdown = QComboBox()
         self.dropdown.addItems([
-            'q', 'qdot',
+            'q', 
+            'qdot',
             'zeta',
-            'u1', 'u2',
+            'u','u1', 'u2',
             'Vn',
             'lbd',
+            'ctrltime'
         ])
         self.dropdown.setCurrentText(default_selection)
         self.dropdown.currentTextChanged.connect(self.on_selection_change)
@@ -377,18 +390,19 @@ class TimeSeriesGraph(QtWidgets.QWidget):
         y_ranges = {
             'q1': (-3, 3),
             'q2': (-3, 3),
-            'q': (-3, 3),
-            'qdot': (-3, 3),
-            'qdot1': (-3, 3),
-            'qdot2': (-3, 3),
+            'q': (-3, 2),
+            'qdot': (-10, 10),
+            'qdot1': (-10, 10),
+            'qdot2': (-10, 10),
             'x1': (0.0, 0.4),
             'x2': (0.0, 0.4),
             'x': (0.0, 0.4),
             'yz': (-0.4, 0.4),
-            'u': (-10, 10),
+            'u': (-20, 20),
             'tau': (-10, 10),
-            'Vn': (-10, 10),
-            'lbd': (-10, 10),
+            'Vn': (0, 20),
+            'lbd': (0, 20),
+            'ctrltime': (0, 5e-3),
         }
 
         # ✅ ViewBox 설정: 마우스 휠로 Y축 확대/축소 가능하게 설정
@@ -408,12 +422,16 @@ class TimeSeriesGraph(QtWidgets.QWidget):
             'zeta': ['zeta1', 'zeta2'],
             'x': ['xd1', 'x1', 'xd2', 'x2'],
             'yz': ['x1', 'x2'],
+            'u': ['u1','u_sat1','u2','u_sat2'],
             'u1': ['u1','u_sat1'],
             'u2': ['u2','u_sat2'],
             'lbd': ['lbd1', 'lbd2', 'lbd3','lbd4','lbd5','lbd6','lbd7','lbd8'],
             'Vn': ['Vn1', 'Vn2','Vn3'],
+            'ctrltime': ['ctrltime'],  # Add ctrltime to paired_selections
         }
-
+        # ✅ ctrltime 데이터를 10^-6 단위에서 10^6 단위로 변환
+        # if selected_key == 'ctrltime' and 'ctrltime' in real_time_data:
+        #     real_time_data['ctrltime'] = [value * 1e3 for value in real_time_data['ctrltime']]
         if selected_key in paired_selections:
             for data_key in paired_selections[selected_key]:
                 if data_key in real_time_data and len(real_time_data[data_key]) > 0:
@@ -421,16 +439,20 @@ class TimeSeriesGraph(QtWidgets.QWidget):
                     linestyle = self.line_styles.get(data_key, {}).get('linestyle', 'solid')
                     pen = pg.mkPen(color, width=2, style=pg.QtCore.Qt.DashLine if linestyle == 'dashed' else pg.QtCore.Qt.SolidLine)
 
-                    x_data = real_time_data['Time'][-200:]
-                    y_data = real_time_data[data_key][-200:]
+                    x_data = real_time_data['Time'][-400:]
+                    y_data = real_time_data[data_key][-400:]
 
                     # ✅ Ensure x_data and y_data have the same length
                     min_length = min(len(x_data), len(y_data))
                     x_data = x_data[:min_length]
                     y_data = y_data[:min_length]
-
                     # ✅ 길이 체크
                     if len(x_data) < 2 or len(y_data) < 2:
                         continue
 
+                    # Special handling for ctrltime if needed
+                    if data_key == 'ctrltime':
+                        pen = pg.mkPen('magenta', width=2)  # Ensure ctrltime has a distinct style
+
+                    self.graph_widget.plot(x_data, y_data, pen=pen)
                     self.graph_widget.plot(x_data, y_data, pen=pen)

@@ -12,7 +12,6 @@ ui_instance = None  # RobotArmControl 인스턴스를 저장
 # 실시간 데이터 구조
 real_time_data = {key: [] for key in (
     ['Time','CONTROL_FLAG',
-     'A_zeta', 'beta', 
      'q1', 'q2', 'qdot1', 'qdot2',
      'r1', 'r2', 'rdot1', 'rdot2',
      'u1','u2', 'u_sat1', 'u_sat2', 
@@ -20,7 +19,9 @@ real_time_data = {key: [] for key in (
      'lbd5', 'lbd6', 'lbd7', 'lbd8',
      'Vn1', 'Vn2', 'Vn3',
      'zeta1', 'zeta2',
-     'ctrltime']
+     'ctrltime',
+     'A_zeta', 'beta', 
+    ]
 )}
 
 previous_values = {"CONTROL_FLAG": None, "A_zeta": None, "beta": None}
@@ -129,6 +130,10 @@ def read_data(log_widget=None):
             line = ser.readline().decode("utf-8").strip()
             if not line:
                 continue  
+            # ✅ 1. CAN 데이터 처리 ("ID:"로 시작하는 메시지)
+            if line.startswith("ID:"):
+                process_can_freq_data(line)
+                continue
 
             # ✅ 2. 숫자 배열 (탭으로 구분된 실시간 데이터)
             if "\t" in line:
@@ -157,7 +162,6 @@ def read_data(log_widget=None):
                 if update_gain_ui:
                     gain_data = {
                         "CONTROL_FLAG": real_time_data["CONTROL_FLAG"][-1],
-                        "ctrltime": real_time_data["ctrltime"][-1],
                     }
                     update_gain_ui(gain_data)
 
@@ -237,7 +241,7 @@ def process_can_freq_data(line):
         items = part.strip().split()  # ID와 주파수 분리 (예: "0 500" → ["0", "500"])
 
         if len(items) != 2:
-            log(None, f"⚠️ Warning: Unexpected CAN frequency data format: {line}")
+            # log(None, f"⚠️ Warning: Unexpected CAN frequency data format: {line}")
             return  # ⚠️ 형식이 맞지 않으면 무시
 
         try:
@@ -250,6 +254,7 @@ def process_can_freq_data(line):
 
     # ✅ UI 업데이트 함수 호출
     if update_can_freq_ui:
+        log(None,f"Updating UI with CAN frequency data: {can_freq_data}")  # 디버깅 메시지
         update_can_freq_ui(can_freq_data)
 
 def process_gain_data(line):
@@ -275,6 +280,14 @@ def reboot_opencr(log_widget):
     """OpenCR 리부팅 명령 전송"""
     send_serial_command("REBOOT", log_widget)
     log(log_widget, "Reboot command sent.")
+    clear_real_time_data()
+
+def clear_real_time_data():
+    """실시간 데이터 초기화"""
+    global real_time_data
+    for key in real_time_data:
+        real_time_data[key].clear()
+
 
 def ft_bias_update(log_widget):
     """FT Bias 업데이트 명령 전송"""

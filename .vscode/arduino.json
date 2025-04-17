@@ -1,6 +1,6 @@
 {
-    "port": "COM4",
+    "port": "COM10",
     "configuration": "upload_method=UploadMethod",
-    "board": "OpenCR:OpenCR:OpenCR",
+    "board": "OpenCR",
     "sketch": "Real_CoNAC_Robot.ino"
 }

@@ -10,14 +10,15 @@
 extern bool isStandbyMode;
 
 enum ControlMode {
-  STANDBY = 0,
-  HOME = 1,
-  EXECUTE1 = 2,
-  EXECUTE2 = 3,
-  EXECUTE3 = 4,
-  EXECUTE4 = 5,
-  REST1 = 6,
-  REST2 = 7
+  STANDBY = 0, // 대기 모드
+  HOME = 1,   // 초기화
+  EXECUTE0 = 2, // PD + DOB
+  EXECUTE1 = 3, // CoNAC cycle1
+  EXECUTE2 = 4, // Aux cycle1
+  EXECUTE3 = 5, // CoNAC episode1
+  EXECUTE4 = 6, // Aux episode1
+  REST1 = 7,
+  REST2 = 8
 };
 
 extern ControlMode CONTROL_FLAG;
@@ -59,14 +60,22 @@ int float_to_uint(float x, float x_min, float x_max, unsigned int bits);
 
 void pack_cmd(can_message_t *msg, float p_des, float v_des, float kp, float kd, float t_ff);
 void unpack_reply(uint8_t* data, int8_t index);
-void motor_receive1(const uint8_t* data) ;
-void motor_receive2(const uint8_t* data) ;
+void motor_receive1(const uint8_t* data);
+void motor_receive2(const uint8_t* data);
 
 void printFreq(); 
 
 void set_origin_command(uint8_t controller_id);
 void send_torque_command1(uint8_t motor_id, float torque);
 void send_torque_command2(uint8_t motor_id, float torque);
+
+void pack_var2(can_message_t *msg, float var1, float var2, uint16_t var_id);
+void pack_var3(can_message_t *msg, float var1, float var2, float var3, uint16_t var_id);
+void pack_var4(can_message_t *msg, float var1, float var2, float var3, float var4, uint16_t var_id);
+
+void send_var_command2(uint16_t var_id, float var1, float var2);
+void send_var_command3(uint16_t var_id, float var1, float var2, float var3);
+void send_var_command4(uint16_t var_id, float var1, float var2, float var3, float var4);
 
 void rebootSystem();
 void updateState();

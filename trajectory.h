@@ -1,7 +1,7 @@
 #ifndef TRAJECTORY_H
 #define TRAJECTORY_H
 
-#include "C:\Users\fairytale\Documents\Arduino\libraries\Eigen\Dense"
+#include "C:\Users\fairy\Documents\Arduino\libraries\Eigen\Dense"
 #include "manipulator.h"
 #include <cmath>
 

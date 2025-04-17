@@ -28,6 +28,7 @@ class RobotArmControl(QMainWindow):
         self.csv_writer = None
 
         self.timer = None
+        self.is_paused = False  
         self.parameters = {}
         self.dynamic_widgets = {}
 
@@ -123,18 +124,29 @@ class RobotArmControl(QMainWindow):
         buttons = [
             ("Connect", lambda: self.connect_and_start_graph()), 
             ("Reboot", lambda: reboot_opencr(self.log_text)),
-            ("", None), ("", None), 
             ("Set Origin1", lambda: set_origin(self.log_text, 1)),
             ("Set Origin2", lambda: set_origin(self.log_text, 2)),
-            ("FT Bias", lambda: ft_bias_update(self.log_text)),
-            ("", None), 
-            ("Standby", lambda: standby(self.log_text)),
-            ("Execute", lambda: execute(self.log_text)),
+            ("Pause", lambda: self.pause_graphs()),
+            ("Resume", lambda: self.resume_graphs()),
+            ("Clear Log", lambda: self.log_text.clear()),
         ]
 
         for i, (text, callback) in enumerate(buttons):
             self.add_button(button_grid, text, i // 2, i % 2, callback)
 
+    def pause_graphs(self):
+        """그래프 업데이트 일시정지"""
+        if self.timer and self.timer.isActive():
+            self.timer.stop()
+            self.is_paused = True
+            log(self.log_text, "Graph updates paused.")
+
+    def resume_graphs(self):
+        """그래프 업데이트 재개"""
+        if self.timer and not self.timer.isActive():
+            self.timer.start(100)  # 50ms 간격으로 재개
+            self.is_paused = False
+            log(self.log_text, "Graph updates resumed.")
 
 
     def update_gain_display(self, gain_values):
@@ -180,7 +192,7 @@ class RobotArmControl(QMainWindow):
         self.can_freq_title.setStyleSheet("font-weight: bold; font-size: 12px;")
         can_freq_layout.addWidget(self.can_freq_title)
 
-        for i in range(5):  # ✅ CAN ID 5개 기준 (0, 1, 2, 3,4)
+        for i in range(2):  # ✅ CAN ID 5개 기준 (0, 1, 2, 3,4)
             label = QLabel(f"ID {i}: - Hz", self)
             label.setStyleSheet("font-size: 12px;")
             can_freq_layout.addWidget(label)
@@ -290,19 +302,28 @@ class RobotArmControl(QMainWindow):
 
         # ✅ 5개의 TimeSeriesGraph와 1개의 RealTimeGraph 생성
         self.time_series_graph1 = TimeSeriesGraph(default_selection="q")     # 1번
-        self.real_time_graph = RealTimeGraph(self)                           # 3번 (RealTimeGraph)
-        self.time_series_graph3 = TimeSeriesGraph(default_selection="Fext")  # 4번
+        self.time_series_graph2 = TimeSeriesGraph(default_selection="Vn")  # 4번
+        self.time_series_graph3 = TimeSeriesGraph(default_selection="lbd")     # 5번
         self.time_series_graph4 = TimeSeriesGraph(default_selection="u")     # 5번
-        self.tau_time_graph5 = TauPlotGraph(self) # 6번
+        self.real_time_graph = RealTimeGraph(self)                           # 3번 (RealTimeGraph)
+        self.tau_time_graph = TauPlotGraph(self) # 6번
 
+        # ✅ 위치 설정 (4x4 grid)
+        graph_container.addWidget(self.time_series_graph1, 0, 0, 1, 3)  # 첫 번째 행, 3열 차지
+        graph_container.addWidget(self.time_series_graph2, 1, 0, 1, 3)  # 두 번째 행, 3열 차지
+        graph_container.addWidget(self.time_series_graph3, 2, 0, 1, 3)  # 세 번째 행, 3열 차지
+        graph_container.addWidget(self.time_series_graph4, 3, 0, 1, 3)  # 네 번째 행, 3열 차지
 
-        # ✅ 위치 설정 (2x3 그리드)
-        graph_container.addWidget(self.time_series_graph1, 0, 0,1,2)  # 1번
-        graph_container.addWidget(self.real_time_graph, 0, 2)     # 3번 (RealTimeGraph)
-        graph_container.addWidget(self.time_series_graph3, 1, 0)  # 4번
-        graph_container.addWidget(self.time_series_graph4, 1, 1)  # 5번
-        graph_container.addWidget(self.tau_time_graph5, 1, 2)  # 6번
+        graph_container.addWidget(self.real_time_graph, 0, 3, 2, 1)  # 첫 번째 열 마지막, 2행 차지
+        graph_container.addWidget(self.tau_time_graph, 2, 3, 2, 1)   # 마지막 열, 2행 차지
+        # ✅ 그래프 크기 조정
+        self.time_series_graph1.setFixedHeight(280)
+        self.time_series_graph2.setFixedHeight(280)
+        self.time_series_graph3.setFixedHeight(280)
+        self.time_series_graph4.setFixedHeight(280)
 
+        self.real_time_graph.setFixedWidth(400)  # RealTimeGraph 너비 조정
+        self.tau_time_graph.setFixedWidth(400)   # TauPlotGraph 너비 조정
         # ✅ 클릭 이벤트 연결 (RealTimeGraph만)
         self.real_time_graph.clicked.connect(self.on_graph_click)
 
@@ -548,11 +569,11 @@ class RobotArmControl(QMainWindow):
 
         self.frame_count += 1
         self.time_series_graph1.update_graph()
-        # self.time_series_graph2.update_graph()
+        self.time_series_graph2.update_graph()
         self.real_time_graph.update_graph()
         self.time_series_graph3.update_graph()
         self.time_series_graph4.update_graph()
-        self.tau_time_graph5.update_graph()
+        self.tau_time_graph.update_graph()
         # elapsed_time = (time.perf_counter() - start_time) * 1000  # ✅ 실행 시간(ms)
         # print(f"🔍 update_graphs 실행 시간: {elapsed_time:.2f} ms")  # ✅ 실행 시간 출력
 
@@ -578,7 +599,7 @@ class RobotArmControl(QMainWindow):
         if self.timer is None:
             self.timer = QTimer()
             self.timer.timeout.connect(self.update_graphs)
-        self.timer.start(50)
+        self.timer.start(100)
 
 
 

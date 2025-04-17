@@ -16,7 +16,7 @@ namespace Trajectory {
   Eigen::Vector2d qd3;
 
   // double Ttraj = 16.0;               // 경로 생성 시간 (초)
-  double Ttraj = 16.0;               // 경로 생성 시간 (초)
+  double Ttraj = 12.0;               // 경로 생성 시간 (초)
   double Thome = 5.0;               // 홈 위치 경로 생성 시간 (초)
   double elapsed_time = 0.0;        // 경과 시간
   bool is_trajectory_active = false; // 경로 활성화 상태
@@ -79,14 +79,13 @@ namespace Trajectory {
       }
       elapsed_time += dt;
       double t = elapsed_time;
-      q0 << -M_PI/2, 0;
+      // q0 << -M_PI/2, 0;
       qd1 << M_PI/4, -M_PI/2;      
-      qd2 << 3*M_PI/4, -3*M_PI/4;
-      qd3 << -M_PI/4, M_PI/2;
+      qd2 << -M_PI/4, M_PI/4;
 
-      qd1 = q0+(qd1-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
-      qd2 = q0+(qd2-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
-      qd3 = q0+(qd3-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
+      // qd1 = q0+(qd1-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
+      // qd2 = q0+(qd2-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
+      // qd3 = q0+(qd3-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
 
 
       if (t < Ttraj) {
@@ -95,9 +94,9 @@ namespace Trajectory {
         } else if (t < Ttraj*2/4) {
           poly_filter(qd1,qd2,Ttraj/4,t-Ttraj/4); // qd1 -> q2
         } else if (t < Ttraj*3/4) {
-          poly_filter(qd2,qd3,Ttraj/4,t-Ttraj*2/4); // qd2 -> qd3
+          poly_filter(qd2,qd1,Ttraj/4,t-Ttraj*2/4); // qd2 -> qd3
         } else {
-          poly_filter(qd3,q0,Ttraj/4,t-Ttraj*3/4); // qd3 -> q0
+          poly_filter(qd1,q0,Ttraj/4,t-Ttraj*3/4); // qd3 -> q0
         }
       } else {
         elapsed_time = 0.0;

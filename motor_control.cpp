@@ -164,10 +164,87 @@ void pack_cmd(can_message_t *msg, float p_des, float v_des, float kp, float kd, 
     msg->data[5] = v_int >> 4;
     msg->data[6] = ((v_int & 0xF) << 4) | (t_int >> 8);
     msg->data[7] = t_int & 0xFF;
-
-
 }
 
+void pack_var2(can_message_t *msg, float var1, float var2, uint16_t var_id) {
+    msg->id = var_id; 
+    msg->length = 8;
+    msg->format = CAN_STD_FORMAT;
+
+    // 32 // 32
+    msg->data[0] = ((int32_t)(var1 * 1000) & 0xFF000000) >> 24;
+    msg->data[1] = ((int32_t)(var1 * 1000) & 0x00FF0000) >> 16;
+    msg->data[2] = ((int32_t)(var1 * 1000) & 0x0000FF00) >> 8;
+    msg->data[3] = ((int32_t)(var1 * 1000) & 0x000000FF);
+
+    msg->data[4] = ((int32_t)(var2 * 1000) & 0xFF000000) >> 24;
+    msg->data[5] = ((int32_t)(var2 * 1000) & 0x00FF0000) >> 16;
+    msg->data[6] = ((int32_t)(var2 * 1000) & 0x0000FF00) >> 8;
+    msg->data[7] = ((int32_t)(var2 * 1000) & 0x000000FF);
+}
+
+void pack_var3(can_message_t *msg, float var1, float var2, float var3, uint16_t var_id) {
+    msg->id = var_id; 
+    msg->length = 8;
+    msg->format = CAN_STD_FORMAT;
+
+    // 32 // 16 // 16
+    msg->data[0] = ((int32_t)(var1 * 1000) & 0xFF000000) >> 24;
+    msg->data[1] = ((int32_t)(var1 * 1000) & 0x00FF0000) >> 16;
+    msg->data[2] = ((int32_t)(var1 * 1000) & 0x0000FF00) >> 8;
+    msg->data[3] = ((int32_t)(var1 * 1000) & 0x000000FF);
+
+    msg->data[4] = ((int16_t)(var2 * 1000) & 0xFF00) >> 8;
+    msg->data[5] = ((int16_t)(var2 * 1000) & 0x00FF);
+    
+    msg->data[6] = ((int16_t)(var3 * 1000) & 0xFF00) >> 8;
+    msg->data[7] = ((int16_t)(var3 * 1000) & 0x00FF);
+}
+
+void pack_var4(can_message_t *msg, float var1, float var2, float var3, float var4, uint16_t var_id) {
+    msg->id = var_id; 
+    msg->length = 8;
+    msg->format = CAN_STD_FORMAT;
+
+    // 16 // 16 // 16 // 16
+    msg->data[0] = ((int16_t)(var1 * 1000) & 0xFF00) >> 8;
+    msg->data[1] = ((int16_t)(var1 * 1000) & 0x00FF);
+    
+    msg->data[2] = ((int16_t)(var2 * 1000) & 0xFF00) >> 8;
+    msg->data[3] = ((int16_t)(var2 * 1000) & 0x00FF);
+
+    msg->data[4] = ((int16_t)(var3 * 1000) & 0xFF00) >> 8;
+    msg->data[5] = ((int16_t)(var3 * 1000) & 0x00FF);
+    
+    msg->data[6] = ((int16_t)(var4 * 1000) & 0xFF00) >> 8;
+    msg->data[7] = ((int16_t)(var4 * 1000) & 0x00FF);
+}
+
+
+void send_var_command2(uint16_t var_id, float var1, float var2) {
+    can_message_t msg;
+    pack_var2(&msg, var1, var2, var_id);
+    CanBus.write(msg.id, msg.data, 8, CAN_STD_FORMAT);
+}
+
+void send_var_command3(uint16_t var_id, float var1, float var2, float var3) {
+    can_message_t msg;
+    pack_var3(&msg, var1, var2, var3, var_id);
+    CanBus.write(msg.id, msg.data, 8, CAN_STD_FORMAT);
+}
+
+void send_var_command4(uint16_t var_id, float var1, float var2, float var3, float var4) {
+    can_message_t msg;
+    pack_var4(&msg, var1, var2, var3, var4, var_id);
+    CanBus.write(msg.id, msg.data, 8, CAN_STD_FORMAT);
+}
+
+
+// void send_torque_command1(uint8_t motor_id, float torque) {
+//     can_message_t msg;
+//     pack_cmd(&msg, 0.0, 0.0, 0.0, 0.0, 0.70f * torque, motor_id);
+//     CanBus.write(msg.id, msg.data, 8, CAN_EXT_FORMAT);
+// }
 
 // ✅ 수신 주파수 출력 함수
 void printFreq() {
@@ -178,6 +255,7 @@ void printFreq() {
         Serial.print(processedCounts[i]);
         Serial.print(" ");  // ✅ 다음 ID와 구분하기 위해 공백 추가
         processedCounts[i] = 0;  // ✅ 주기 초기화
+        receiveCounts[i] = 0;  // ✅ 주기 초기화
     }
     Serial.println();
 }
@@ -215,6 +293,7 @@ void send_torque_command2(uint8_t motor_id, float torque) {
     CanBus.write(msg.id, msg.data, 8, CAN_EXT_FORMAT);
 }
 
+
 // 시스템 리부트
 void rebootSystem() {
     NVIC_SystemReset();
@@ -228,24 +307,33 @@ void handleInputCommand(const String& input) {
         delay(100); // 메시지가 출력될 시간을 확보
         NVIC_SystemReset(); // 시스템 리셋
     } 
-
-    else if (input.equalsIgnoreCase("2")) {
+    // ORIGIN 명령 처리
+    else if (input.startsWith("origin:")) {
+        int controller_id = input.substring(input.indexOf(':') + 1).toInt(); // ':' 이후 값 추출
+        if (controller_id == 1 || controller_id == 2) {
+            set_origin_command(controller_id); // 해당 controller_id로 명령 실행
+        } else {
+        }
+    } 
+    else if (input.equalsIgnoreCase("3")) {
         // CONTROL_NUM = 1;
         CONTROL_FLAG = EXECUTE1;
     } 
-    else if (input.equalsIgnoreCase("4")) {
+    else if (input.equalsIgnoreCase("5")) {
         // CONTROL_NUM = 3; // Traj
         CONTROL_FLAG = EXECUTE3;
     } 
-    else if (input.equalsIgnoreCase("5")) {
+    else if (input.equalsIgnoreCase("6")) {
         // CONTROL_NUM = 4; // Traj
         CONTROL_FLAG = EXECUTE4;
     } 
-    else if (input.equalsIgnoreCase("3")) {
+    else if (input.equalsIgnoreCase("4")) {
         // CONTROL_NUM = 2; // Traj
         CONTROL_FLAG = EXECUTE2;
     } 
-
+    else if (input.equalsIgnoreCase("2")) {
+        CONTROL_FLAG = EXECUTE0;
+    }     
     else if (input.equalsIgnoreCase("1")) {
         CONTROL_FLAG = HOME;
     }     
@@ -272,6 +360,10 @@ void handleInputCommand(const String& input) {
         double val = input.substring(7).toFloat();
         CoNAC_Params::u_ball = val;
     }
+    else if (input.startsWith("rho=")) {
+        double val = input.substring(4).toFloat();
+        CoNAC_Params::rho = val;
+    }
     else if (input.startsWith("u1_max=")) {
         double val = input.substring(7).toFloat();
         CoNAC_Params::u1_max = val;
@@ -280,16 +372,19 @@ void handleInputCommand(const String& input) {
         double val = input.substring(7).toFloat();
         CoNAC_Params::u2_max = val;
     }
-    else if (input.startsWith("alp1=")) {
-        double val = input.substring(3).toFloat();
+    else if (input.startsWith("alp=")) {
+        double val = input.substring(4).toFloat();
         CoNAC_Params::alp1 = val;
-    }
-    else if (input.startsWith("alp2=")) {
-        double val = input.substring(3).toFloat();
         CoNAC_Params::alp2 = val;
     }
+    else if (input.startsWith("beta=")) {
+        double val = input.substring(5).toFloat();
+        for (int i = 3; i<= 7; ++i) {         // beta[3]~beta[7] 업데이트
+            CoNAC_Params::beta[i] = val;
+        }
+    }
     else if (input.startsWith("B=") || input.startsWith("Lambda_arr=") ||
-            input.startsWith("th_max=") || input.startsWith("beta=")) {
+            input.startsWith("th_max=")) {
         
         String varName = input.substring(0, input.indexOf('='));
         String data = input.substring(varName.length() + 1);
@@ -335,18 +430,7 @@ void handleInputCommand(const String& input) {
                 CoNAC_Params::th_max[2] = data.substring(sep + 1).toFloat();
             }
         }
-
-        else if (varName == "beta") {
-            int sep1 = data.indexOf(';');
-            int sep2 = data.indexOf(';', sep1 + 1);
-            if (sep1 != -1 && sep2 != -1) {
-                CoNAC_Params::beta[0] = data.substring(0, sep1).toFloat();
-                CoNAC_Params::beta[1] = data.substring(sep1 + 1, sep2).toFloat();
-                CoNAC_Params::beta[2] = data.substring(sep2 + 1).toFloat();
-            }
-        }
     }
-
 }
 
 

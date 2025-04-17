@@ -16,6 +16,7 @@ namespace CoNAC_Params {
     extern double B_zeta[4];
     extern double u1_max;
     extern double u2_max;
+    extern double rho; // CoNAC modification parameter
 }
 
 namespace CoNAC_Data {

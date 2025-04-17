@@ -5,7 +5,7 @@
  * File: rtwtypes.h
  *
  * MATLAB Coder version            : 5.6
- * C/C++ source code generated on  : 10-Apr-2025 17:48:40
+ * C/C++ source code generated on  : 14-Apr-2025 20:40:23
  */
 
 #ifndef RTWTYPES_H
@@ -53,11 +53,6 @@ typedef double real_T;
 typedef bool boolean_T;
 
 #endif
-
-// /* Include Files */
-// #include "tmwtypes.h"
-
-// #endif
 /*
  * File trailer for rtwtypes.h
  *
