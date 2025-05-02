@@ -3,18 +3,22 @@
 #include <CoNAC.h>
 
 namespace CoNAC_Params {
-    double u_ball = 11.5f;  
-    double u1_max = 10.7819f; 
-    double u2_max = 4.0f;
-    double alp1 = 0.5;        
-    double alp2 = 0.5;        
-    // double beta[8] = {1e-3, 1e-3, 1e-3, 10, 10, 10, 10, 10};    
-    double beta[8] = {1e-3, 1e-3, 1e-3, 10, 0, 1e1, 0, 1e1};    
-    double th_max[3] = {10, 10, 10};    
+
+    double u_ball = 11.0f;  
+    double u2_max = 3.5f;
+    double u1_max = std::sqrt(u_ball * u_ball - u2_max * u2_max);
+    // double u_ball = 30.0f;  
+    // double u1_max = 30.0f; 
+    // double u2_max = 30.0f;
+    double alp1 = 0.2;       
+    double alp2 = 0.2;        
+    // double beta[8] = {1, 1, 1, 1e0, 0, 1e2, 0, 1e2};    
+    double beta[8] = {1, 1, 1, 0, 0, 0, 0, 0};    
+    double th_max[3] = {5, 5.5, 6};    
     double B[4] = {1, 0, 0, 1};  
     double Lambda_arr[4] = {5, 0, 0, 15};
     double A_zeta[4] = {-10, 0, 0, -10}; // Aux. System Matrix 
-    double B_zeta[4] = {100, 0, 0, 100}; // Aux. Input Matrix
+    double B_zeta[4] = {800, 0, 0, 800}; // Aux. Input Matrix
     double rho = 0.0; // CoNAC modification parameter
 }
 

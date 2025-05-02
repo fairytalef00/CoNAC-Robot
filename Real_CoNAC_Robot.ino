@@ -28,6 +28,14 @@ unsigned long lastPrintTimeCtrlExec = 0;
 unsigned long lastREST1timeState = 0;
 unsigned long lastREST2timeState = 0;
 
+unsigned long loopCalTime = 0;
+unsigned long loopEndTime = 0;
+unsigned long lastcaltime = 0;
+
+unsigned long lastupdateTime = 0;
+unsigned long CalupdateTime = 0;
+unsigned long EndupdateTime = 0;
+
 // ✅ STM32F103 기준 타이머 크기 정리
 // Timer	크기 (bit)	사용 추천
 // TIM1	16-bit (고급)	PWM 등 특수 제어
@@ -40,15 +48,19 @@ unsigned long lastREST2timeState = 0;
 
 HardwareTimer ControlTimer(3);     // 32-bit
 HardwareTimer UpdateTimer(2);      // 32-bit
-HardwareTimer TrajectoryTimer(4);  // 16-bit
-HardwareTimer PrintTimer(1);       // 16-bit
 
 ControlMode prevMode = STANDBY; 
 
 unsigned int CONTROL_NUM = 1;
 
+
+float t = 0.0f;
 Eigen::Matrix2d Kd1;
 Eigen::Matrix2d Dd1;
+
+Eigen::Vector2d d_hat(0.0, 0.0);
+Eigen::Vector2d Zdot(0.0, 0.0);
+Eigen::Vector2d Z(0.0, 0.0);
 
 void setup() {
   delay(3000);
@@ -59,11 +71,16 @@ void setup() {
   initializeCoNAC();
   delay(500);
 
-  if (!CanBus.begin(CAN_BAUD_500K)) {
+  Serial.print("Setup....");
+  delay(500);
+
+  if (!CanBus.begin(CAN_BAUD_1000K)) {
     Serial.println("Failed to initialize CAN!");
     while (1);
   }
   initializeDevice();
+  Serial.print("CAN ok....");
+  delay(500);
 
   initializeTimer(); // 타이머 초기화
   delay(500);
@@ -71,10 +88,13 @@ void setup() {
   using namespace Manipulator;
   initializeManipulator();
 
-  Kd = Eigen::Vector2d(100, 100).asDiagonal();
-  Dd = Eigen::Vector2d(20, 20).asDiagonal();
+  Kd = Eigen::Vector2d(50, 70).asDiagonal();
+  Dd = Eigen::Vector2d(12, 15).asDiagonal();
   Kd1 = Eigen::Vector2d(150, 150).asDiagonal();
   Dd1 = Eigen::Vector2d(50, 50).asDiagonal();
+  L << 1, 0,
+       0, 1;
+
   delay(500);
 
   using namespace Trajectory;
@@ -84,50 +104,14 @@ void setup() {
   Serial.println("Let's go");
 }
 
-// Trajectory Loop
-void trajectoryLoop() 
-{
-  using namespace Trajectory;
-  float elapsedTime = micros() / 1e6;  // 진행 시간 (초 단위)
-
-  switch (CONTROL_FLAG) {
-    case STANDBY:       // (0)
-      break;
-
-    case HOME:          // (1)
-      generateReference0(traj_dt); 
-      break;
-
-    case EXECUTE0:      // PD + DOB (2)
-    case EXECUTE1:      // CoNAC cycle1 (3)
-    case EXECUTE2:      // Aux cycle1 (4)
-      generateReference1(traj_dt); 
-      break;
-
-    case EXECUTE3:      // CoNAC episode1 (5)
-    case EXECUTE4:      // Aux episode1   (6)
-      generateReference3(traj_dt); 
-      break;
-
-    case REST1:         // (6)
-      break;
-
-    case REST2:         // (7)
-      break;
-
-    default:
-      return;
-  }
-}
-
-// Trajectory Loop
+// Control Loop
 void controlLoop() 
 {
   using namespace Trajectory;
   using namespace Manipulator;
   using namespace CoNAC_Params;
   using namespace CoNAC_Data;
-
+  float elapsedTime = micros(); 
   ctrlStartTime = micros();
   switch (CONTROL_FLAG){
 
@@ -135,46 +119,143 @@ void controlLoop()
         initializeTrajectory();
         u.setZero();
         u_sat.setZero();
+
+        send_var_command5(3, q(0), q(1), r(0), r(1), 0);  
+        send_var_command4(4, 0, 0, u(0), u(1));
+        send_var_command5_2(5, 0, 0, 0, CONTROL_FLAG, CtrlTime*1e-3);
+        
       break;
 
     case HOME :
+      generateReference0(ctrl_dt); 
+
       computeDYN(M, C, G, q, qdot);
       u = M * (Dd * (rdot - qdot) + Kd * (r - q)) + C * qdot + G;
+
       u_sat(0) = constrain(u(0), -20, 20);
       u_sat(1) = constrain(u(1), -20, 20);
+
+      send_var_command5(3, q(0), q(1), r(0), r(1), 0);  
+      send_var_command4(4, 0, 0, u(0), u(1));
+      send_var_command5_2(5, 0, 0, 0, CONTROL_FLAG, CtrlTime*1e-3);
       break;
 
-    case EXECUTE0 :       // PD
+    case EXECUTE0 :       // PD + DOB
+      generateReference1(ctrl_dt); 
+      // generateReference3(ctrl_dt); 
       computeDYN(M, C, G, q, qdot);
       u = M * (rddot + Dd * (rdot - qdot) + Kd * (r - q)) + C * qdot + G;
-      // u = G;
+      
+      // d_hat = L * (M * qdot + Z);
+      // Zdot = - (u + C.transpose()*qdot - G) - d_hat;
+      // Z += Zdot * ctrl_dt;
+
       // u_sat = saturation(u);
       u_sat(0) = constrain(u(0), -15, 15);
       u_sat(1) = constrain(u(1), -10, 10);
+
+      send_var_command5(3, q(0), q(1), r(0), r(1), 0);  
+      send_var_command4(4, 0, 0, u(0), u(1));
+      send_var_command5_2(5, 0, 0, 0, CONTROL_FLAG, CtrlTime*1e-3);
+      
       break;
 
     case REST1:
-      u.setZero();
-      u_sat.setZero();
-      break;
-
     case REST2:
       u.setZero();
       u_sat.setZero();
+      send_torque_command1(1, u_sat(0));
+      send_torque_command2(2, u_sat(1));
+      send_var_command5(3, q(0), q(1), r(0), r(1), 0);  
+      send_var_command4(4, 0, 0, u(0), u(1));
+      send_var_command5_2(5, 0, 0, 0, CONTROL_FLAG, CtrlTime*1e-3);
       break;
 
-    case EXECUTE1 : // CoNAC
-    case EXECUTE3 :
+      // lbd(1), // th1
+      // lbd(2), // th2
+      // lbd(3), // u_ball
+      // lbd(4), // u_1 M
+      // lbd(5), // u_2 M
+      // lbd(6), // u_1 m
+      // lbd(7), // u_2 m
+
+    case EXECUTE1 : // c1 CoNAC // 3
         CONTROL_NUM = 1;
+
+        beta[3] = 1e1;
+        beta[5] = 1e2;
+        beta[7] = 1e2;
+        
+        // refrence 
+        generateReference1(ctrl_dt); 
+        // generateReference3(ctrl_dt);
+        
+        // control input
         ctrl_wrapper(CONTROL_NUM, q, qdot, r, rdot, u, lbd, Vn);
+        
+        // saturation
         u_sat = saturation(u);
+
+        // send torque command & state command
+        send_var_command5(3, q(0), q(1), r(0), r(1), lbd(3));  
+        send_var_command4(4, lbd(5), lbd(7), u(0), u(1));
+        send_var_command5_2(5, Vn(0), Vn(1), Vn(2), CONTROL_FLAG, CtrlTime*1e-3);
       break;
 
-    case EXECUTE2 : // Aux
-    case EXECUTE4 :
-        CONTROL_NUM = 2;
+    case EXECUTE2 : // c4 Aux // 4
+      CONTROL_NUM = 2;
+
+      //reference 
+      generateReference1(ctrl_dt); 
+      
+      //control input
+      ctrl_wrapper(CONTROL_NUM, q, qdot, r, rdot, u, lbd, Vn);
+      
+      //saturation 
+      u_sat = saturation(u);
+      
+      // send torque command & state command
+      send_var_command5(3, q(0), q(1), r(0), r(1), 0);  
+      send_var_command4(4, zeta_arr[0], zeta_arr[1], u(0), u(1));
+      send_var_command5_2(5, Vn(0), Vn(1), Vn(2), CONTROL_FLAG, CtrlTime*1e-3);
+      
+      break;      
+
+    case EXECUTE3 : // c2 CONAC with small beta // 5
+        CONTROL_NUM = 1;
+        
+        beta[3] = 0.1;
+        beta[5] = 1;
+        beta[7] = 1;
+
+        generateReference1(ctrl_dt); 
+
+        ctrl_wrapper(CONTROL_NUM, q, qdot, r, rdot, u, lbd, Vn);
+
+        u_sat = saturation(u);
+
+        send_var_command5(3, q(0), q(1), r(0), r(1), lbd(3));  
+        send_var_command4(4, lbd(5), lbd(7), u(0), u(1));
+        send_var_command5_2(5, Vn(0), Vn(1), Vn(2), CONTROL_FLAG, CtrlTime*1e-3);
+      break;
+
+
+    case EXECUTE4 : // c3 CONAC with nothing // 6
+        CONTROL_NUM = 1;
+
+        beta[3] = 0;
+        beta[5] = 0;
+        beta[7] = 0;    
+
+        generateReference1(ctrl_dt); 
+        // generateReference3(ctrl_dt); 
         ctrl_wrapper(CONTROL_NUM, q, qdot, r, rdot, u, lbd, Vn);
         u_sat = saturation(u);
+
+        send_var_command5(3, q(0), q(1), r(0), r(1), lbd(0));  
+        send_var_command4(4, lbd(1), lbd(2), u(0), u(1));
+        send_var_command5_2(5, Vn(0), Vn(1), Vn(2), CONTROL_FLAG, CtrlTime*1e-3);
+        
       break;
 
     default:
@@ -186,24 +267,68 @@ void controlLoop()
 
   // Safety check for joint limits
   if (u_sat.array().isNaN().any()) {
-    Serial.println("Warning: u contains NaN. Resetting to zero.");
+    // Serial.println("Warning: u contains NaN. Resetting to zero.");
     u_sat.setZero();
   }
-
   send_torque_command1(1, u_sat(0));
   send_torque_command2(2, u_sat(1));
 
+
+  /*
+  C1: (13) proposed
+    q (2)
+    r (2)
+    u  (2)
+    th (3)
+    lbd (3,5,7)
+    t  (1)
+    cmp (1)
+  C2: (12) aux 
+    q (2)
+    r (2)
+    u  (2)
+    th (3)
+    zeta (2)
+    t  (1)
+    cmp (1)
+  C3: (13) with small beta
+    q (2)
+    r (2)
+    u  (2)
+    th (3)
+    lbd (3,5,7)
+    t  (1)
+    cmp (1)
+  C4: (13) no control input constraint
+    q (2)
+    r (2)
+    u  (2)
+    th (3)
+    lbd (1,2,3)
+    t  (1)
+    cmp (1)
+  */
+
+  // loopEndTime = micros();
+  // loopCalTime = loopEndTime - ctrlStartTime;
+
+
+  // if (micros() - lastcaltime >= 1e6) {
+  //   Serial.println(CtrlTime*1e-3,4);
+  //   Serial.println(loopCalTime*1e-3,4);
+  //   lastcaltime = micros();
+  // }
 }
 
 
 // Main
 void updateLoop() {
-  float elapsedTime = millis() / 1000.0f;  // 진행 시간 (초 단위)
   using namespace Manipulator;
   using namespace Trajectory;
   using namespace CoNAC_Data;
   using namespace CoNAC_Params;
 
+  unsigned long elapsedTime = micros();  // 진행 시간 (마이크로초 단위)
   // Reset trajectory state if CONTROL_FLAG changes
   if (CONTROL_FLAG != lastControlFlag) {
     traj_flag(); // Reset trajectory state
@@ -215,16 +340,16 @@ void updateLoop() {
     case STANDBY : 
       if (prevMode != STANDBY) {
         initializeSim();
-        // for (int i = 3; i <= 7; ++i) {   
-        //   beta[i] = 0;
+        // // for (int i = 3; i <= 7; ++i) {   
+        // //   beta[i] = 0;
+        // // }
+        // for (int i = 0; i < 2; ++i) {         // zeta[0]~zeta[1] 업데이트
+        //   zeta_arr[i] = 0;
         // }
-        for (int i = 0; i < 2; ++i) {         // zeta[0]~zeta[1] 업데이트
-          zeta_arr[i] = 0;
-        }
-        A_zeta[0] = -10;
-        A_zeta[2] = -10;
-        lastREST1timeState = 0;
-        lastREST2timeState = 0;
+        // A_zeta[0] = -10;
+        // A_zeta[2] = -10;
+        // lastREST1timeState = 0;
+        // lastREST2timeState = 0;
       }
       break;
 
@@ -234,35 +359,11 @@ void updateLoop() {
       }
       break;
 
-    case EXECUTE0 :
-      if (prevMode != EXECUTE0) {
-        // Serial.println("Start_Record");
-      }  
-      
-      break;
-
-    case EXECUTE1 :
-      if (prevMode != EXECUTE1) {
-        // Serial.println("Start_Record");
-      }  
-      break;
-
-    case EXECUTE2 :
-      if (prevMode != EXECUTE2) {
-        // Serial.println("Start_Record");
-      }  
-      break;
-
-    case EXECUTE3 :
-      if (prevMode != EXECUTE3) {
-        // Serial.println("Start_Record");
-      }  
-      break;
-
-    case EXECUTE4 :
-      if (prevMode != EXECUTE4) {
-        // Serial.println("Start_Record");
-      }  
+    case EXECUTE0 : // 2
+    case EXECUTE1 : // 3
+    case EXECUTE2 : // 4
+    case EXECUTE3 : // 5
+    case EXECUTE4 : // 6
       break;
 
     case REST1 : 
@@ -321,32 +422,21 @@ void updateLoop() {
   }
 
   prevMode = CONTROL_FLAG; // 현재 모드 저장
-  // updateState();
-  updateDynamics(update_dt);
+
+  updateState();
+
+  // updateDynamics(update_dt);
+
+  // CalupdateTime = EndupdateTime - elapsedTime;
+  // if (micros() - lastupdateTime >= 1e6) {
+  //   printState(elapsedTime * 1e-6);
+  //   lastupdateTime = micros();
+  // } 
 
 }
 
-void printLoop() {
-  using namespace Manipulator;
-  using namespace Trajectory;
-  using namespace CoNAC_Data;
-  using namespace CoNAC_Params;
-  float elapsedTime = micros() / 1e6;  // 진행 시간 (초 단위)
-
-  send_var_command4(3, q(0), q(1), r(0), r(1));
-  send_var_command4(4, qdot(0), qdot(1), rdot(0), rdot(1));
-  send_var_command2(5, u(0), u(1));
-  send_var_command2(6, u_sat(0), u_sat(1));
-  send_var_command4(7, Vn(0), Vn(1), Vn(2), CtrlTime);
-  send_var_command2(8, lbd(3), lbd(6));
-  send_var_command2(9, lbd(7), elapsedTime);
-  send_var_command2(10, zeta_arr[0], zeta_arr[1]);
-  send_var_command3(11, A_zeta[0], beta[3], CONTROL_FLAG);
-
-}
 
 void loop() {
-
 
   if (Serial.available() > 0) {
     String input = Serial.readStringUntil('\n');
@@ -361,109 +451,103 @@ void loop() {
   // }
 }
 
-// void printState(float elapsedTime) {
-//   using namespace Manipulator;
-//   using namespace Trajectory;
-//   using namespace CoNAC_Data;
-//   using namespace CoNAC_Params;
+void printState(float elapsedTime) {
+  using namespace Manipulator;
+  using namespace Trajectory;
+  using namespace CoNAC_Data;
+  using namespace CoNAC_Params;
 
-//   // 출력할 데이터를 배열로 구성
-//   float data[] = {
-//     elapsedTime,
-//     CONTROL_FLAG,
-//     q(0),
-//     q(1),
-//     qdot(0),
-//     qdot(1),
-//     r(0),
-//     r(1),
-//     rdot(0),
-//     rdot(1),
-//     u(0),
-//     u(1),
-//     u_sat(0), 
-//     u_sat(1), 
-//     lbd(0), // th0 **** NUM LAMBDA: 8
-//     lbd(1), // th1 
-//     lbd(2), // th2
-//     lbd(3), // u_ball
-//     lbd(4), // u_1 M
-//     lbd(5), // u_2 M
-//     lbd(6), // u_1 m
-//     lbd(7), // u_2 m
-//     Vn(0),
-//     Vn(1),
-//     Vn(2), // 잊지마잉
-//     zeta_arr[0],
-//     zeta_arr[1],
-//     CtrlTime * 1e-6,  // Add average ctrl_wrapper execution time
-//     A_zeta[0],
-//     beta[3]
-//   };
+  // 출력할 데이터를 배열로 구성
+  float data[] = {
+    elapsedTime, CONTROL_FLAG,
+    q(0), q(1), qdot(0), qdot(1),
+    r(0), r(1), rdot(0), rdot(1),
+    u(0), u(1),
+    u_sat(0), 
+    u_sat(1), 
+    lbd(0), // th0 **** NUM LAMBDA: 8
+    lbd(1), // th1 
+    lbd(2), // th2
+    lbd(3), // u_ball
+    lbd(4), // u_1 M
+    lbd(5), // u_2 M
+    lbd(6), // u_1 m
+    lbd(7), // u_2 m
+    Vn(0),
+    Vn(1),
+    Vn(2), // 잊지마잉
+    zeta_arr[0],
+    zeta_arr[1],
+    CtrlTime * 1e-6,  // Add average ctrl_wrapper execution time
+    A_zeta[0],
+    beta[3]
+  };
 
-//   // 데이터 반복 출력
-//   for (size_t i = 0; i < sizeof(data) / sizeof(data[0]); i++) {
-//     if (i == 0) {
-//       Serial.print(data[i], 3); 
-//     } else {
-//       Serial.print(data[i], 6);
-//     }
-//     if (i < sizeof(data) / sizeof(data[0]) - 1) Serial.print("\t");
-//   }
-//   Serial.println();
-// }
+  // 데이터 반복 출력
+  for (size_t i = 0; i < sizeof(data) / sizeof(data[0]); i++) {
+    if (i == 0) {
+      Serial.print(data[i], 3); 
+    } else if (i == 1){
+      Serial.print(data[i],1);
+    } else {
+      Serial.print(data[i], 4);
+    }
+    if (i < sizeof(data) / sizeof(data[0]) - 1) Serial.print("\t");
+  }
+  Serial.println();
+}
 
-// void printGain() {
-//   using namespace CoNAC_Params;
-//   using namespace CoNAC_Data;
-//   using namespace Trajectory;
+void printGain() {
+  using namespace CoNAC_Params;
+  using namespace CoNAC_Data;
+  using namespace Trajectory;
 
-//     Serial.print("u_ball ");
-//     Serial.print(u_ball);
-//     Serial.print(" ");
+    Serial.print("u_ball ");
+    Serial.print(u_ball);
+    Serial.print(" ");
 
-//     Serial.print("u_max ");
-//     Serial.print(u1_max);
-//     Serial.print(" ");
-//     Serial.print(u2_max);
-//     Serial.print(" ");
+    Serial.print("u_max ");
+    Serial.print(u1_max);
+    Serial.print(" ");
+    Serial.print(u2_max);
+    Serial.print(" ");
 
-//     Serial.print("alp ");
-//     Serial.print(alp1);
-//     Serial.print(" ");
-//     Serial.print(alp2);
-//     Serial.print(" ");
+    Serial.print("alp ");
+    Serial.print(alp1);
+    Serial.print(" ");
+    Serial.print(alp2);
+    Serial.print(" ");
 
-//     Serial.print("beta ");
-//     for (int i = 0; i < 8; i++) {
-//       Serial.print(beta[i]);
-//       Serial.print(" ");
-//     }
+    Serial.print("beta ");
+    for (int i = 0; i < 8; i++) {
+      Serial.print(beta[i]);
+      Serial.print(" ");
+    }
 
-//     Serial.print("th_max ");
-//     for (int i = 0; i < 3; i++) {
-//       Serial.print(th_max[i]);
-//       Serial.print(" ");
-//     }
+    Serial.print("th_max ");
+    for (int i = 0; i < 3; i++) {
+      Serial.print(th_max[i]);
+      Serial.print(" ");
+    }
 
-//     Serial.print("Lambda_arr ");
-//     for (int i = 0; i < 4; i++) {
-//       Serial.print(Lambda_arr[i]);
-//       Serial.print(" ");
-//     }
+    Serial.print("Lambda_arr ");
+    for (int i = 0; i < 4; i++) {
+      Serial.print(Lambda_arr[i]);
+      Serial.print(" ");
+    }
 
-//     Serial.print("A_zeta ");
-//     Serial.print(A_zeta[0]);
-//     Serial.print(" ");
+    Serial.print("A_zeta ");
+    Serial.print(A_zeta[0]);
+    Serial.print(" ");
 
-//     Serial.print("th_arr ");
-//     for (int i = 0; i < 3; i++) {
-//       Serial.print(th_arr[i],4);
-//       Serial.print(" ");
-//     }
+    Serial.print("th_arr ");
+    for (int i = 0; i < 3; i++) {
+      Serial.print(th_arr[i],4);
+      Serial.print(" ");
+    }
 
-//     Serial.println();
-// }
+    Serial.println();
+}
 
 void checkJointLimits() {
   using namespace Manipulator;
@@ -489,6 +573,8 @@ void initializeSim(){
   using namespace Manipulator;
   using namespace CoNAC_Params;
   using namespace CoNAC_Data;
+
+  // initialize random number generator
   std::srand(18);
   for (int i = 0; i < 58; ++i) {
     double random = static_cast<double>(std::rand()) / RAND_MAX;
@@ -518,25 +604,11 @@ void initializeTimer(){
   UpdateTimer.refresh();
   UpdateTimer.resume();
 
-  // Trajectory Timer 설정 (250Hz)
-  TrajectoryTimer.pause();
-  TrajectoryTimer.setPeriod(trajPeriodMicros);  // Trajectory loop 주기 설정
-  TrajectoryTimer.attachInterrupt(trajectoryLoop);
-  TrajectoryTimer.refresh();
-  TrajectoryTimer.resume();
-
   // Control Timer 설정 (250Hz)
   ControlTimer.pause();
   ControlTimer.setPeriod(ctrlPeriodMicros);
   ControlTimer.attachInterrupt(controlLoop);
   ControlTimer.refresh();
   ControlTimer.resume();
-
-  // Print Timer 설정 (500Hz)
-  PrintTimer.pause();
-  PrintTimer.setPeriod(printPeriodMicros);
-  PrintTimer.attachInterrupt(printLoop);
-  PrintTimer.refresh();
-  PrintTimer.resume();
 
 }

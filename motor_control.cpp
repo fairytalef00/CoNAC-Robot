@@ -121,6 +121,13 @@ int float_to_uint(float x, float x_min, float x_max, unsigned int bits){
     return (int) ((x- x_min)*((float)((1<<bits)/span)));
 }
 
+// Float to int 변환 
+int float_to_int(float x, float x_min, float x_max, unsigned int bits) { 
+    float span = x_max - x_min;
+
+    return (int)((2 * x - x_min - x_max) * ((2047) / span));
+}
+
 void motor_receive1(const uint8_t* data) { 
     int16_t pos_int = (data[0] << 8) | data[1]; 
     int16_t spd_int = (data[2] << 8) | data[3]; 
@@ -167,7 +174,7 @@ void pack_cmd(can_message_t *msg, float p_des, float v_des, float kp, float kd, 
 }
 
 void pack_var2(can_message_t *msg, float var1, float var2, uint16_t var_id) {
-    msg->id = var_id; 
+    msg->id = var_id;  
     msg->length = 8;
     msg->format = CAN_STD_FORMAT;
 
@@ -207,19 +214,75 @@ void pack_var4(can_message_t *msg, float var1, float var2, float var3, float var
     msg->format = CAN_STD_FORMAT;
 
     // 16 // 16 // 16 // 16
-    msg->data[0] = ((int16_t)(var1 * 1000) & 0xFF00) >> 8;
-    msg->data[1] = ((int16_t)(var1 * 1000) & 0x00FF);
-    
-    msg->data[2] = ((int16_t)(var2 * 1000) & 0xFF00) >> 8;
-    msg->data[3] = ((int16_t)(var2 * 1000) & 0x00FF);
+    int16_t var1_int = (int16_t)(var1 * 1000);
+    int16_t var2_int = (int16_t)(var2 * 1000);
+    int16_t var3_int = (int16_t)(var3 * 1000);
+    int16_t var4_int = (int16_t)(var4 * 1000);
 
-    msg->data[4] = ((int16_t)(var3 * 1000) & 0xFF00) >> 8;
-    msg->data[5] = ((int16_t)(var3 * 1000) & 0x00FF);
-    
-    msg->data[6] = ((int16_t)(var4 * 1000) & 0xFF00) >> 8;
-    msg->data[7] = ((int16_t)(var4 * 1000) & 0x00FF);
+    msg->data[0] = (var1_int >> 8) & 0xFF; // Upper 8 bits of var1
+    msg->data[1] = var1_int & 0xFF;        // Lower 8 bits of var1
+
+    msg->data[2] = (var2_int >> 8) & 0xFF; // Upper 8 bits of var2
+    msg->data[3] = var2_int & 0xFF;        // Lower 8 bits of var2
+
+    msg->data[4] = (var3_int >> 8) & 0xFF; // Upper 8 bits of var3
+    msg->data[5] = var3_int & 0xFF;        // Lower 8 bits of var3
+
+    msg->data[6] = (var4_int >> 8) & 0xFF; // Upper 8 bits of var4
+    msg->data[7] = var4_int & 0xFF;        // Lower 8 bits of var4
 }
 
+void pack_var5(can_message_t *msg, float var1, float var2, float var3, float var4, float var5, uint16_t var_id) {
+    msg->id = var_id; 
+    msg->length = 8;
+    msg->format = CAN_STD_FORMAT;
+
+    // 12 // 12 // 12 // 12 // 16
+    // int var1_int = (int)(var1 * 1000) & 0xFFF; // 12-bit
+    // int var2_int = (int)(var2 * 1000) & 0xFFF; // 12-bit
+    // int var3_int = (int)(var3 * 1000) & 0xFFF; // 12-bit
+    // int var4_int = (int)(var4 * 1000) & 0xFFF; // 12-bit
+    int var5_int = (int)(var5 * 1000) & 0xFFFF; // 16-bit
+
+    int var1_int = float_to_int(var1, -1.5, 2.0, 12);
+    int var2_int = float_to_int(var2, -3.0, 1.5, 12);
+    int var3_int = float_to_int(var3, -1.5, 2.0, 12);
+    int var4_int = float_to_int(var4, -3.0, 1.5, 12);
+
+    msg->data[0] = (var1_int >> 4) & 0xFF;                            // Upper 8 bits of var1
+    msg->data[1] = ((var1_int & 0xF) << 4) | ((var2_int >> 8) & 0xF); // Lower 4 bits of var1 + Upper 4 bits of var2
+    msg->data[2] = var2_int & 0xFF;                                   // Lower 8 bits of var2
+    msg->data[3] = (var3_int >> 4) & 0xFF;                            // Upper 8 bits of var3
+    msg->data[4] = ((var3_int & 0xF) << 4) | ((var4_int >> 8) & 0xF); // Lower 4 bits of var3 + Upper 4 bits of var4
+    msg->data[5] = var4_int & 0xFF;                                   // Lower 8 bits of var4
+    msg->data[6] = (var5_int >> 8) & 0xFF;                            // Upper 8 bits of var5
+    msg->data[7] = var5_int & 0xFF;                                   // Lower 8 bits of var5
+}
+
+void pack_var5_2(can_message_t *msg, float var1, float var2, float var3, float var4, float var5, uint16_t var_id) {
+    msg->id = var_id; 
+    msg->length = 8;
+    msg->format = CAN_STD_FORMAT;
+
+    // 12 // 12 // 12 // 12 // 16
+    // int var1_int = (int)(var1 * 1000) & 0xFFF; // 12-bit
+    // int var2_int = (int)(var2 * 1000) & 0xFFF; // 12-bit
+    // int var3_int = (int)(var3 * 1000) & 0xFFF; // 12-bit
+    int var1_int = float_to_int(var1, 0, 9, 12);
+    int var2_int = float_to_int(var2, 0, 9, 12);
+    int var3_int = float_to_int(var3, 0, 9, 12);
+    int var4_int = (int)(var4 * 1000) & 0xFFF; // 12-bit
+    int var5_int = (int)(var5 * 1000) & 0xFFFF; // 16-bit
+
+    msg->data[0] = (var1_int >> 4) & 0xFF;                            // Upper 8 bits of var1
+    msg->data[1] = ((var1_int & 0xF) << 4) | ((var2_int >> 8) & 0xF); // Lower 4 bits of var1 + Upper 4 bits of var2
+    msg->data[2] = var2_int & 0xFF;                                   // Lower 8 bits of var2
+    msg->data[3] = (var3_int >> 4) & 0xFF;                            // Upper 8 bits of var3
+    msg->data[4] = ((var3_int & 0xF) << 4) | ((var4_int >> 8) & 0xF); // Lower 4 bits of var3 + Upper 4 bits of var4
+    msg->data[5] = var4_int & 0xFF;                                   // Lower 8 bits of var4
+    msg->data[6] = (var5_int >> 8) & 0xFF;                            // Upper 8 bits of var5
+    msg->data[7] = var5_int & 0xFF;                                   // Lower 8 bits of var5
+}
 
 void send_var_command2(uint16_t var_id, float var1, float var2) {
     can_message_t msg;
@@ -236,6 +299,19 @@ void send_var_command3(uint16_t var_id, float var1, float var2, float var3) {
 void send_var_command4(uint16_t var_id, float var1, float var2, float var3, float var4) {
     can_message_t msg;
     pack_var4(&msg, var1, var2, var3, var4, var_id);
+    CanBus.write(msg.id, msg.data, 8, CAN_STD_FORMAT);
+}
+
+
+void send_var_command5(uint16_t var_id, float var1, float var2, float var3, float var4, float var5) {
+    can_message_t msg;
+    pack_var5(&msg, var1, var2, var3, var4, var5, var_id);
+    CanBus.write(msg.id, msg.data, 8, CAN_STD_FORMAT);
+}
+
+void send_var_command5_2(uint16_t var_id, float var1, float var2, float var3, float var4, float var5) {
+    can_message_t msg;
+    pack_var5_2(&msg, var1, var2, var3, var4, var5, var_id);
     CanBus.write(msg.id, msg.data, 8, CAN_STD_FORMAT);
 }
 

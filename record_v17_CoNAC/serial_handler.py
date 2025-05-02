@@ -9,7 +9,7 @@ BAUD_RATE = 115200
 ser = None
 ui_instance = None  # RobotArmControl 인스턴스를 저장
 
-# 실시간 데이터 구조
+# # 실시간 데이터 구조
 real_time_data = {key: [] for key in (
     ['Time','CONTROL_FLAG',
      'q1', 'q2', 'qdot1', 'qdot2',
@@ -23,22 +23,31 @@ real_time_data = {key: [] for key in (
      'A_zeta', 'beta', 
     ]
 )}
+# # 실시간 데이터 구조
+# real_time_data = {key: [] for key in (
+#     ['Time','CONTROL_FLAG',
+#      'q1', 'q2', 'qdot1', 'qdot2',
+#      'r1', 'r2', 'rdot1', 'rdot2',
+#      'u1','u2',
+#      'd_hat1','d_hat2', 'Z1', 'Z2'
+#     ]
+# )}
 
-previous_values = {"CONTROL_FLAG": None, "A_zeta": None, "beta": None}
+# previous_values = {"CONTROL_FLAG": None, "A_zeta": None, "beta": None}
 
-def check_and_log_changes(log_widget):
-    """CONTROL_FLAG, A_zeta, beta 값 변경 시 로그 출력"""
-    global real_time_data, previous_values
+# def check_and_log_changes(log_widget):
+#     """CONTROL_FLAG, A_zeta, beta 값 변경 시 로그 출력"""
+#     global real_time_data, previous_values
 
-    gain_data = {}
-    for key in ["CONTROL_FLAG", "A_zeta", "beta"]:
-        if real_time_data[key]:
-            current_value = real_time_data[key][-1]
-            if previous_values[key] != current_value:
-                log(log_widget, f"{key} {previous_values[key]} -> {current_value}")
-                previous_values[key] = current_value
-    if update_gain_ui and gain_data:
-        update_gain_ui(gain_data)
+#     gain_data = {}
+#     for key in ["CONTROL_FLAG", "A_zeta", "beta"]:
+#         if real_time_data[key]:
+#             current_value = real_time_data[key][-1]
+#             if previous_values[key] != current_value:
+#                 log(log_widget, f"{key} {previous_values[key]} -> {current_value}")
+#                 previous_values[key] = current_value
+#     if update_gain_ui and gain_data:
+#         update_gain_ui(gain_data)
 
 
 update_can_freq_ui = None

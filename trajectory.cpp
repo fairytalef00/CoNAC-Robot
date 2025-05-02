@@ -66,63 +66,94 @@ namespace Trajectory {
   }
 
   void generateReference1(double dt) {
-      using namespace Manipulator;
-      if (!is_trajectory_active) return;
+    // 1. qd0 -> qd1 
+    // 2. idle(0.5s)
 
-      if (cycle_count >= MAX_CYCLE_NUM) {
-          is_trajectory_active = false; 
-          elapsed_time = 0.0;
+    // //episode 1
+    // 3. qd1 -> qd2 
+    // 4. qd2 -> qd3
+    // 5. qd3 -> qd2
+    // 6. qd2 -> qd1
 
-          CONTROL_FLAG = STANDBY;
+    // //episode 2
+    // 3. qd1 -> qd2
+    // 4. qd2 -> qd3
+    // 5. qd3 -> qd2
+    // 6. qd2 -> qd1
 
-          return;
-      }
-      elapsed_time += dt;
-      double t = elapsed_time;
-      // q0 << -M_PI/2, 0;
-      qd1 << M_PI/4, -M_PI/2;      
-      qd2 << -M_PI/4, M_PI/4;
+    // 7. idle(0.5s)
+    // 8. qd1 -> qd0 
+      
+    using namespace Manipulator;
+    if (!is_trajectory_active) return;
 
-      // qd1 = q0+(qd1-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
-      // qd2 = q0+(qd2-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
-      // qd3 = q0+(qd3-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
+    elapsed_time += dt;
+    double t = elapsed_time;
+
+    // q0 << -M_PI/2, 0;
+    qd1 << -M_PI/3, M_PI/3;
+    qd2 << M_PI/4, -M_PI/2;      
+    qd3 << -M_PI/4, M_PI/4;
 
 
-      if (t < Ttraj) {
-        if (t < Ttraj/4) {
-          poly_filter(q0,qd1,Ttraj/4,t); // q0 -> qd1
-        } else if (t < Ttraj*2/4) {
-          poly_filter(qd1,qd2,Ttraj/4,t-Ttraj/4); // qd1 -> q2
-        } else if (t < Ttraj*3/4) {
-          poly_filter(qd2,qd1,Ttraj/4,t-Ttraj*2/4); // qd2 -> qd3
-        } else {
-          poly_filter(qd1,q0,Ttraj/4,t-Ttraj*3/4); // qd3 -> q0
-        }
+    double Tidle = 8.0;         // idle time
+    double Tinit = Ttraj / 4;   // init time
+    double Ttotal = Tinit + Tidle + 2 * (Ttraj) + 2.0 + Tinit; // Total time 
+
+    if (t < Ttotal) {
+          if (t < Tinit) {
+              // 1. qd0 -> qd1
+              poly_filter(q0, qd1, Tinit, t);
+          } else if (t < Tinit + Tidle) {
+              // 2. Idle at qd1
+              r = qd1;
+              rdot.setZero();
+              rddot.setZero();
+
+          } else if (t < Tinit + Tidle + Ttraj) {
+              // Episode 1: qd1 -> qd2 -> qd3 -> qd2 -> qd1
+              double t_episode = t - (Tinit + Tidle);
+              if (t_episode < Tinit) {
+                  poly_filter(qd1, qd2, Tinit, t_episode); // qd1 -> qd2
+              } else if (t_episode < 2 * Tinit) {
+                  poly_filter(qd2, qd3, Tinit, t_episode - Tinit); // qd2 -> qd3
+              } else if (t_episode < 3 * Tinit) {
+                  poly_filter(qd3, qd2, Tinit, t_episode - 2 * Tinit); // qd3 -> qd2
+              } else {
+                  poly_filter(qd2, qd1, Tinit, t_episode - 3 * Tinit); // qd2 -> qd1
+              }
+
+          } else if (t < Tinit + Tidle + Ttraj + Ttraj) {
+              // Episode 2: qd1 -> qd2 -> qd3 -> qd2 -> qd1
+              double t_episode = t - (Tinit + Tidle + Ttraj);
+              if (t_episode < Tinit) {
+                  poly_filter(qd1, qd2, Tinit, t_episode); // qd1 -> qd2
+              } else if (t_episode < 2 * Tinit) {
+                  poly_filter(qd2, qd3, Tinit, t_episode - Tinit); // qd2 -> qd3
+              } else if (t_episode < 3 * Tinit) {
+                  poly_filter(qd3, qd2, Tinit, t_episode - 2 * Tinit); // qd3 -> qd2
+              } else {
+                  poly_filter(qd2, qd1, Tinit, t_episode - 3 * Tinit); // qd2 -> qd1
+              }
+
+          } else if (t < Tinit + Tidle + Ttraj + Ttraj + 2.0) {
+              // 7. Idle at qd1
+              r = qd1;
+              rdot.setZero();
+              rddot.setZero();
+
+          } else {
+              // 8. qd1 -> qd0
+              double t_return = t - (Tinit + Tidle + Ttraj + Ttraj + 2.0);
+              poly_filter(qd1, q0, Tinit, t_return);
+          }
       } else {
-        elapsed_time = 0.0;
-        cycle_count = cycle_count + 1; 
+          // Reset for the next cycle
+          elapsed_time = 0.0;
+          is_trajectory_active = false;
+          CONTROL_FLAG = STANDBY;
       }
   }
-
-  // void generateReference2(double dt) {
-  //   if (rep_count >= MAX_REP_NUM)
-  //   {
-  //     is_trajectory_active = false; 
-  //     elapsed_time = 0.0;
-  //     rep_count = 0.0;
-  //     cycle_count = 0.0;
-  //     CONTROL_FLAG = REST2;
-  //     return;
-  //   }
-    
-  //   if (cycle_count >= MAX_CYCLE_NUM) {
-  //     elapsed_time = 0.0;
-  //     cycle_count = 0.0;
-  //     rep_count += 1; 
-  //   }
-
-  //   generateReference1(dt);
-  // }
 
   void generateReference3(double dt) {
     using namespace Manipulator;
@@ -132,25 +163,15 @@ namespace Trajectory {
         is_trajectory_active = false; 
         elapsed_time = 0.0;
 
-        if (CONTROL_FLAG==4){
-          CONTROL_FLAG = REST1;
-        } else if (CONTROL_FLAG==5){
-          CONTROL_FLAG = REST2;
-        }
+        CONTROL_FLAG = STANDBY;
 
         return;
     }
     elapsed_time += dt;
     double t = elapsed_time;
-    q0 << -M_PI/2, 0;
+    // q0 << -M_PI/2, 0;
     qd1 << M_PI/4, -M_PI/2;      
-    qd2 << 3*M_PI/4, -3*M_PI/4;
-    qd3 << -M_PI/4, M_PI/2;
-
-    qd1 = q0+(qd1-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
-    qd2 = q0+(qd2-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
-    qd3 = q0+(qd3-q0) * (1+cycle_count)/(MAX_CYCLE_NUM);
-
+    qd2 << -M_PI/4, M_PI/4;
 
     if (t < Ttraj) {
       if (t < Ttraj/4) {
@@ -158,15 +179,15 @@ namespace Trajectory {
       } else if (t < Ttraj*2/4) {
         poly_filter(qd1,qd2,Ttraj/4,t-Ttraj/4); // qd1 -> q2
       } else if (t < Ttraj*3/4) {
-        poly_filter(qd2,qd3,Ttraj/4,t-Ttraj*2/4); // qd2 -> qd3
+        poly_filter(qd2,qd1,Ttraj/4,t-Ttraj*2/4); // qd2 -> qd3
       } else {
-        poly_filter(qd3,q0,Ttraj/4,t-Ttraj*3/4); // qd3 -> q0
+        poly_filter(qd1,q0,Ttraj/4,t-Ttraj*3/4); // qd3 -> q0
       }
     } else {
       elapsed_time = 0.0;
       cycle_count = cycle_count + 1; 
     }
-  }
+}
 
   void poly_filter(const Eigen::Vector2d& q0, const Eigen::Vector2d& qd, double T, double t){
 

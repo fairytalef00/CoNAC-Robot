@@ -305,14 +305,14 @@ namespace Manipulator {
       } else {
         u_sat = u;
       }
-      // Apply constraint on u(0) (u1_max)
-      if (u_sat(0) > u1_max) {
-          u_sat(1) = u_sat(1) * u1_max / fabs(u_sat(0));
-          u_sat(0) = u1_max;
-      } else if (u_sat(0) < -u1_max) {
-          u_sat(1) = u_sat(1) * u1_max / fabs(u_sat(0));
-          u_sat(0) = -u1_max;
-      }
+    //   // Apply constraint on u(0) (u1_max)
+    //   if (u_sat(0) > u1_max) {
+    //       u_sat(1) = u_sat(1) * u1_max / fabs(u_sat(0));
+    //       u_sat(0) = u1_max;
+    //   } else if (u_sat(0) < -u1_max) {
+    //       u_sat(1) = u_sat(1) * u1_max / fabs(u_sat(0));
+    //       u_sat(0) = -u1_max;
+    //   }
  
     // Apply constraint on u(1) (u2_max)
     if (u_sat(1) > u2_max) {

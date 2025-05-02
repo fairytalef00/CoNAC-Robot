@@ -403,6 +403,8 @@ class TimeSeriesGraph(QtWidgets.QWidget):
             'Vn': (0, 20),
             'lbd': (0, 20),
             'ctrltime': (0, 5e-3),
+            'd_hat': (-5, 5),
+            'Z' : (-5, 5),
         }
 
         # ✅ ViewBox 설정: 마우스 휠로 Y축 확대/축소 가능하게 설정
@@ -420,6 +422,8 @@ class TimeSeriesGraph(QtWidgets.QWidget):
             'q': ['r1', 'q1', 'r2', 'q2'],
             'qdot': ['rdot1', 'qdot1', 'rdot2', 'qdot2'],
             'zeta': ['zeta1', 'zeta2'],
+            'd_hat': ['d_hat1', 'd_hat2'],
+            'Z': ['Z1', 'Z2'],
             'x': ['xd1', 'x1', 'xd2', 'x2'],
             'yz': ['x1', 'x2'],
             'u': ['u1','u_sat1','u2','u_sat2'],

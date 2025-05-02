@@ -13,10 +13,11 @@ enum ControlMode {
   STANDBY = 0, // 대기 모드
   HOME = 1,   // 초기화
   EXECUTE0 = 2, // PD + DOB
-  EXECUTE1 = 3, // CoNAC cycle1
-  EXECUTE2 = 4, // Aux cycle1
-  EXECUTE3 = 5, // CoNAC episode1
-  EXECUTE4 = 6, // Aux episode1
+
+  EXECUTE1 = 3, // CoNAC 
+  EXECUTE2 = 4, // Aux 
+  EXECUTE3 = 5, // CoNAC with small beta
+  EXECUTE4 = 6, // CoNAC with no beta
   REST1 = 7,
   REST2 = 8
 };
@@ -72,10 +73,18 @@ void send_torque_command2(uint8_t motor_id, float torque);
 void pack_var2(can_message_t *msg, float var1, float var2, uint16_t var_id);
 void pack_var3(can_message_t *msg, float var1, float var2, float var3, uint16_t var_id);
 void pack_var4(can_message_t *msg, float var1, float var2, float var3, float var4, uint16_t var_id);
+void pack_var4_2(can_message_t *msg, float var1, float var2, float var3, float var4, uint16_t var_id);
+void pack_var5(can_message_t *msg, float var1, float var2, float var3, float var4, float var5, uint16_t var_id);
+void pack_var5_2(can_message_t *msg, float var1, float var2, float var3, float var4, float var5, uint16_t var_id);
+
+
 
 void send_var_command2(uint16_t var_id, float var1, float var2);
 void send_var_command3(uint16_t var_id, float var1, float var2, float var3);
 void send_var_command4(uint16_t var_id, float var1, float var2, float var3, float var4);
+void send_var_command5(uint16_t var_id, float var1, float var2, float var3, float var4, float var5);
+void send_var_command5_2(uint16_t var_id, float var1, float var2, float var3, float var4, float var5);
+
 
 void rebootSystem();
 void updateState();

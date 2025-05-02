@@ -21,15 +21,15 @@ extern unsigned long lastPrintTimeLimit;
 // ✅ 고정된 상수 값
 PARAMETER_CONST float ctrl_dt = 0.004f;             // 제어 루프 주기 [s]
 PARAMETER_CONST float update_dt  = 0.002f;       // state update 주기 [s]
-PARAMETER_CONST float traj_dt = 0.004f;        // 궤적 루프 주기 [s]
-PARAMETER_CONST float printperiod = 0.004f;     // 출력 주기 [s]
+// PARAMETER_CONST float traj_dt = 0.005f;        // 궤적 루프 주기 [s]
+// PARAMETER_CONST float printperiod = 0.004f;     // 출력 주기 [s]
 
 // ✅ 마이크로초 단위 주기 계산
 PARAMETER_CONST unsigned long updatePeriodMicros  = static_cast<unsigned long>(update_dt  * 1e6);
 PARAMETER_CONST unsigned long ctrlPeriodMicros = static_cast<unsigned long>(ctrl_dt * 1e6);
-PARAMETER_CONST unsigned long trajPeriodMicros = static_cast<unsigned long>(traj_dt * 1e6);
-PARAMETER_CONST unsigned long printPeriodMillis = static_cast<unsigned long>(printperiod * 1e3);
-PARAMETER_CONST unsigned long printPeriodMicros = static_cast<unsigned long>(printperiod * 1e6);
+// PARAMETER_CONST unsigned long trajPeriodMicros = static_cast<unsigned long>(traj_dt * 1e6);
+// PARAMETER_CONST unsigned long printPeriodMillis = static_cast<unsigned long>(printperiod * 1e3);
+// PARAMETER_CONST unsigned long printPeriodMicros = static_cast<unsigned long>(printperiod * 1e6);
 
 // ✅ 모델 파라미터 정의 (C & C++ 공통 사용 가능)
 
