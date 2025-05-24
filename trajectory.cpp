@@ -126,11 +126,11 @@ namespace Trajectory {
           } else if (t < Tinit + Tidle + Ttraj + Ttraj) {
               // Episode 2: qd1 -> qd2 -> qd3 -> qd2 -> qd1
               double t_episode = t - (Tinit + Tidle + Ttraj);
-              if (t_episode < Tinit) {
+              if (t_episode < Ttraj) {
                   poly_filter(qd1, qd2, Tinit, t_episode); // qd1 -> qd2
-              } else if (t_episode < 2 * Tinit) {
+              } else if (t_episode < 2 * Ttraj) {
                   poly_filter(qd2, qd3, Tinit, t_episode - Tinit); // qd2 -> qd3
-              } else if (t_episode < 3 * Tinit) {
+              } else if (t_episode < 3 * Ttraj) {
                   poly_filter(qd3, qd2, Tinit, t_episode - 2 * Tinit); // qd3 -> qd2
               } else {
                   poly_filter(qd2, qd1, Tinit, t_episode - 3 * Tinit); // qd2 -> qd1
