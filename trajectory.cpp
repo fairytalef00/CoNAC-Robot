@@ -110,7 +110,14 @@ namespace Trajectory {
                   poly_filter(qd2, qd3, Ttraj/4, t_episode - Ttraj/4); // qd2 -> qd3
               } else if (t_episode < 3 * Ttraj/4) {
                   poly_filter(qd3, qd2, Ttraj/4, t_episode - 2 * Ttraj/4); // qd3 -> qd2
+              if (t_episode < Ttraj/4) {
+                  poly_filter(qd1, qd2, Ttraj/4, t_episode); // qd1 -> qd2
+              } else if (t_episode < 2 * Ttraj/4) {
+                  poly_filter(qd2, qd3, Ttraj/4, t_episode - Ttraj/4); // qd2 -> qd3
+              } else if (t_episode < 3 * Ttraj/4) {
+                  poly_filter(qd3, qd2, Ttraj/4, t_episode - 2 * Ttraj/4); // qd3 -> qd2
               } else {
+                  poly_filter(qd2, qd1, Ttraj/4, t_episode - 3 * Ttraj/4); // qd2 -> qd1
                   poly_filter(qd2, qd1, Ttraj/4, t_episode - 3 * Ttraj/4); // qd2 -> qd1
               }
 
@@ -123,10 +130,18 @@ namespace Trajectory {
                   poly_filter(qd2, qd3, Ttraj/4, t_episode - Ttraj/4); // qd2 -> qd3
               } else if (t_episode < 3 * Ttraj/4) {
                   poly_filter(qd3, qd2, Ttraj/4, t_episode - 2 * Ttraj/4); // qd3 -> qd2
+              if (t_episode < Ttraj/4) {
+                  poly_filter(qd1, qd2, Ttraj/4, t_episode); // qd1 -> qd2
+              } else if (t_episode < 2 * Ttraj/4) {
+                  poly_filter(qd2, qd3, Ttraj/4, t_episode - Ttraj/4); // qd2 -> qd3
+              } else if (t_episode < 3 * Ttraj/4) {
+                  poly_filter(qd3, qd2, Ttraj/4, t_episode - 2 * Ttraj/4); // qd3 -> qd2
               } else {
+                  poly_filter(qd2, qd1, Ttraj/4, t_episode - 3 * Ttraj/4); // qd2 -> qd1
                   poly_filter(qd2, qd1, Ttraj/4, t_episode - 3 * Ttraj/4); // qd2 -> qd1
               }
 
+          } else if (t < Tinit + Tidle + Ttraj + Ttraj + Tidle) {
           } else if (t < Tinit + Tidle + Ttraj + Ttraj + Tidle) {
               // 7. Idle at qd1
               r = qd1;
@@ -135,6 +150,7 @@ namespace Trajectory {
 
           } else {
               // 8. qd1 -> qd0
+              double t_return = t - (Tinit + Tidle + Ttraj + Ttraj + Tidle);
               double t_return = t - (Tinit + Tidle + Ttraj + Ttraj + Tidle);
               poly_filter(qd1, q0, Tinit, t_return);
           }
