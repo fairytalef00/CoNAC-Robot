@@ -7,12 +7,8 @@ namespace CoNAC_Params {
     double u_ball = 11.0f;  
     double u2_max = 3.5f;
     double u1_max = std::sqrt(u_ball * u_ball - u2_max * u2_max);
-    // double u_ball = 30.0f;  
-    // double u1_max = 30.0f; 
-    // double u2_max = 30.0f;
     double alp1 = 0.2;       
     double alp2 = 0.2;        
-    // double beta[8] = {1, 1, 1, 1e0, 0, 1e2, 0, 1e2};    
     double beta[8] = {1, 1, 1, 0, 0, 0, 0, 0};    
     double th_max[3] = {5, 5.5, 6};    
     double B[4] = {1, 0, 0, 1};  

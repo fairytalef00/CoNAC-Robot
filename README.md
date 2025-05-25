@@ -1,5 +1,4 @@
 # CoNAC on Robot
 
-Hallossgdfs
-ytfvtctctct
-Nice to meet youㄴㅁㅇㄻㄴㅇㄹㄴㅁㅇㄻㄴ
+Hallo
+Nice to meet you

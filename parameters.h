@@ -19,7 +19,7 @@ extern unsigned long lastPrintTimeLimit;
 
 
 // ✅ 고정된 상수 값
-PARAMETER_CONST float ctrl_dt = 0.004f;             // 제어 루프 주기 [s]
+PARAMETER_CONST float ctrl_dt = 0.002f;             // 제어 루프 주기 [s]
 PARAMETER_CONST float update_dt  = 0.002f;       // state update 주기 [s]
 // PARAMETER_CONST float traj_dt = 0.005f;        // 궤적 루프 주기 [s]
 // PARAMETER_CONST float printperiod = 0.004f;     // 출력 주기 [s]
@@ -67,5 +67,8 @@ PARAMETER_CONST double lc2 = 0.13888;  // Link 2 + motor
 // PARAMETER_CONST double lc2 = 0.08658;  // Link 2 질량중심까지 거리 (O-O Aluminum)
 // PARAMETER_CONST double lc2 = 0.03028;  // Link 2 질량중심까지 거리 (-O Aluminum)
 // PARAMETER_CONST double lc2 = 0.06501;  // Link 2 질량중심까지 거리 (Aluminum+end plate)
+
+extern float qdot_cutoff;  // Low-pass filter cutoff frequency [Hz]
+
 
 #endif // PARAMETERS_H

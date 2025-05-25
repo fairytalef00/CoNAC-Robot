@@ -1,7 +1,6 @@
 #include "motor_control.h"
 #include "ctrl_wrapper.h"
 
-bool isStandbyMode = true;
 State state[NUM_IDS];
 unsigned long receiveCounts[NUM_IDS] = {0};
 unsigned long processedCounts[NUM_IDS] = {0};
@@ -76,8 +75,6 @@ void onCANReceive(can_message_t *msg) {
     }
 }
 
-
-
 // =================== 주기 처리 루프 ===================
 void updateState() {
     for (int channel = 0; channel < NUM_IDS; channel++) {
@@ -103,7 +100,6 @@ void updateState() {
     }
 }
 
-
 void unpack_reply(uint8_t* data, int8_t index) {
     using namespace Manipulator;
     switch (index) {
@@ -111,7 +107,6 @@ void unpack_reply(uint8_t* data, int8_t index) {
         case 1: motor_receive2(data); break;
     }
 }
-
 
 // Float to uint 변환
 int float_to_uint(float x, float x_min, float x_max, unsigned int bits){ 
@@ -238,39 +233,9 @@ void pack_var5(can_message_t *msg, float var1, float var2, float var3, float var
     msg->format = CAN_STD_FORMAT;
 
     // 12 // 12 // 12 // 12 // 16
-    // int var1_int = (int)(var1 * 1000) & 0xFFF; // 12-bit
-    // int var2_int = (int)(var2 * 1000) & 0xFFF; // 12-bit
-    // int var3_int = (int)(var3 * 1000) & 0xFFF; // 12-bit
-    // int var4_int = (int)(var4 * 1000) & 0xFFF; // 12-bit
-    int var5_int = (int)(var5 * 1000) & 0xFFFF; // 16-bit
-
-    int var1_int = float_to_int(var1, -1.5, 2.0, 12);
-    int var2_int = float_to_int(var2, -3.0, 1.5, 12);
-    int var3_int = float_to_int(var3, -1.5, 2.0, 12);
-    int var4_int = float_to_int(var4, -3.0, 1.5, 12);
-
-    msg->data[0] = (var1_int >> 4) & 0xFF;                            // Upper 8 bits of var1
-    msg->data[1] = ((var1_int & 0xF) << 4) | ((var2_int >> 8) & 0xF); // Lower 4 bits of var1 + Upper 4 bits of var2
-    msg->data[2] = var2_int & 0xFF;                                   // Lower 8 bits of var2
-    msg->data[3] = (var3_int >> 4) & 0xFF;                            // Upper 8 bits of var3
-    msg->data[4] = ((var3_int & 0xF) << 4) | ((var4_int >> 8) & 0xF); // Lower 4 bits of var3 + Upper 4 bits of var4
-    msg->data[5] = var4_int & 0xFF;                                   // Lower 8 bits of var4
-    msg->data[6] = (var5_int >> 8) & 0xFF;                            // Upper 8 bits of var5
-    msg->data[7] = var5_int & 0xFF;                                   // Lower 8 bits of var5
-}
-
-void pack_var5_2(can_message_t *msg, float var1, float var2, float var3, float var4, float var5, uint16_t var_id) {
-    msg->id = var_id; 
-    msg->length = 8;
-    msg->format = CAN_STD_FORMAT;
-
-    // 12 // 12 // 12 // 12 // 16
-    // int var1_int = (int)(var1 * 1000) & 0xFFF; // 12-bit
-    // int var2_int = (int)(var2 * 1000) & 0xFFF; // 12-bit
-    // int var3_int = (int)(var3 * 1000) & 0xFFF; // 12-bit
-    int var1_int = float_to_int(var1, 0, 9, 12);
-    int var2_int = float_to_int(var2, 0, 9, 12);
-    int var3_int = float_to_int(var3, 0, 9, 12);
+    int var1_int = (int)(var1 * 1000) & 0xFFF; // 12-bit
+    int var2_int = (int)(var2 * 1000) & 0xFFF; // 12-bit
+    int var3_int = (int)(var3 * 1000) & 0xFFF; // 12-bit
     int var4_int = (int)(var4 * 1000) & 0xFFF; // 12-bit
     int var5_int = (int)(var5 * 1000) & 0xFFFF; // 16-bit
 
@@ -302,16 +267,15 @@ void send_var_command4(uint16_t var_id, float var1, float var2, float var3, floa
     CanBus.write(msg.id, msg.data, 8, CAN_STD_FORMAT);
 }
 
+void send_var_command4_ext(uint32_t var_id, float var1, float var2, float var3, float var4) {
+    can_message_t msg;
+    pack_var4(&msg, var1, var2, var3, var4, var_id);
+    CanBus.write(msg.id, msg.data, 8, CAN_EXT_FORMAT);
+}
 
 void send_var_command5(uint16_t var_id, float var1, float var2, float var3, float var4, float var5) {
     can_message_t msg;
     pack_var5(&msg, var1, var2, var3, var4, var5, var_id);
-    CanBus.write(msg.id, msg.data, 8, CAN_STD_FORMAT);
-}
-
-void send_var_command5_2(uint16_t var_id, float var1, float var2, float var3, float var4, float var5) {
-    can_message_t msg;
-    pack_var5_2(&msg, var1, var2, var3, var4, var5, var_id);
     CanBus.write(msg.id, msg.data, 8, CAN_STD_FORMAT);
 }
 
@@ -426,85 +390,10 @@ void handleInputCommand(const String& input) {
         } 
     }
     // cutoff 설정 처리
-    else if (input.startsWith("cutoff=")) {
-        double new_cutoff = static_cast<double>(input.substring(7).toFloat()); // "cutoff=" 이후 부분
+    else if (input.startsWith("qdot_cutoff=")) {
+        double new_cutoff = static_cast<double>(input.substring(12).toFloat()); // "cutoff=" 이후 부분
         if (new_cutoff > 0) {
-            cutoff = new_cutoff;
-        }
-    }
-    else if (input.startsWith("u_ball=")) {
-        double val = input.substring(7).toFloat();
-        CoNAC_Params::u_ball = val;
-    }
-    else if (input.startsWith("rho=")) {
-        double val = input.substring(4).toFloat();
-        CoNAC_Params::rho = val;
-    }
-    else if (input.startsWith("u1_max=")) {
-        double val = input.substring(7).toFloat();
-        CoNAC_Params::u1_max = val;
-    }
-    else if (input.startsWith("u2_max=")) {
-        double val = input.substring(7).toFloat();
-        CoNAC_Params::u2_max = val;
-    }
-    else if (input.startsWith("alp=")) {
-        double val = input.substring(4).toFloat();
-        CoNAC_Params::alp1 = val;
-        CoNAC_Params::alp2 = val;
-    }
-    else if (input.startsWith("beta=")) {
-        double val = input.substring(5).toFloat();
-        for (int i = 3; i<= 7; ++i) {         // beta[3]~beta[7] 업데이트
-            CoNAC_Params::beta[i] = val;
-        }
-    }
-    else if (input.startsWith("B=") || input.startsWith("Lambda_arr=") ||
-            input.startsWith("th_max=")) {
-        
-        String varName = input.substring(0, input.indexOf('='));
-        String data = input.substring(varName.length() + 1);
-
-        data.replace("[", "");
-        data.replace("]", "");
-
-        if (varName == "B" || varName == "Lambda_arr") {
-            int rowIdx = data.indexOf(';');
-            if (rowIdx != -1) {
-                String roalp1 = data.substring(0, rowIdx);
-                String roalp2 = data.substring(rowIdx + 1);
-
-                int col1 = roalp1.indexOf(',');
-                int col2 = roalp2.indexOf(',');
-
-                if (col1 != -1 && col2 != -1) {
-                    float a11 = roalp1.substring(0, col1).toFloat();
-                    float a12 = roalp1.substring(col1 + 1).toFloat();
-                    float a21 = roalp2.substring(0, col2).toFloat();
-                    float a22 = roalp2.substring(col2 + 1).toFloat();
-
-                    if (varName == "B") {
-                        CoNAC_Params::B[0] = a11;
-                        CoNAC_Params::B[1] = a12;
-                        CoNAC_Params::B[2] = a21;
-                        CoNAC_Params::B[3] = a22;
-                    } else if (varName == "Lambda_arr") {
-                        CoNAC_Params::Lambda_arr[0] = a11;
-                        CoNAC_Params::Lambda_arr[1] = a12;
-                        CoNAC_Params::Lambda_arr[2] = a21;
-                        CoNAC_Params::Lambda_arr[3] = a22;
-                    }
-                }
-            }
-        }
-
-        else if (varName == "th_max") {
-            int sep = data.indexOf(';');
-            if (sep != -1) {
-                CoNAC_Params::th_max[0] = data.substring(0, sep).toFloat();
-                CoNAC_Params::th_max[1] = data.substring(sep + 1).toFloat();
-                CoNAC_Params::th_max[2] = data.substring(sep + 1).toFloat();
-            }
+            qdot_cutoff = new_cutoff;
         }
     }
 }

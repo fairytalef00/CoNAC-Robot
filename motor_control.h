@@ -7,13 +7,10 @@
 #include <CAN.h>
 #include <math.h>
 
-extern bool isStandbyMode;
-
 enum ControlMode {
   STANDBY = 0, // 대기 모드
   HOME = 1,   // 초기화
   EXECUTE0 = 2, // PD + DOB
-
   EXECUTE1 = 3, // CoNAC 
   EXECUTE2 = 4, // Aux 
   EXECUTE3 = 5, // CoNAC with small beta
@@ -79,6 +76,7 @@ void pack_var5_2(can_message_t *msg, float var1, float var2, float var3, float v
 
 
 
+void send_var_command4_ext(uint32_t var_id, float var1, float var2, float var3, float var4);
 void send_var_command2(uint16_t var_id, float var1, float var2);
 void send_var_command3(uint16_t var_id, float var1, float var2, float var3);
 void send_var_command4(uint16_t var_id, float var1, float var2, float var3, float var4);
