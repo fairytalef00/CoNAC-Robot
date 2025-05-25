@@ -23,7 +23,8 @@ namespace Trajectory {
   void generateReference0(double dt);   
   void generateReference1(double dt);    
   void generateReference2(double dt);
-  void generateReference3(double dt);           
+  void generateReference3(double dt);   
+  void generateReference4(double dt);        
   void poly_filter(const Eigen::Vector2d& q0, const Eigen::Vector2d& qd, double T, double t);
   void poly_filter_home(const Eigen::Vector2d& q0, const Eigen::Vector2d& qd, double T, double t);
   void traj_flag();

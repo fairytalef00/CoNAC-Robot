@@ -49,13 +49,16 @@ PARAMETER_CONST double m2 = 2.465;  // Link 2 질량 + motor
 // PARAMETER_CONST double m2 = 0.8703;   // Link 2 질량 (Aluminum + end plate)
 
 // ** 관성 (Moment of Inertia) **
-PARAMETER_CONST double I1 = 0.06911;  // Link 1 관성 + 9×9× 0.0001002
+PARAMETER_CONST double I1 = 0.06911;  // Link 1 관성 
 // PARAMETER_CONST double I2 = 0.01532;  // Link 2 관성 (Aluminum + end plate + ft sensor)
-PARAMETER_CONST double I2 = 0.06911;  // Link 2 관성 + motor
+PARAMETER_CONST double I2 = 0.06911;  // Link 2 관성
 // PARAMETER_CONST double I2 = 0.002245;  // Link 2 관성 (O-O Aluminum)
 // PARAMETER_CONST double I2 = 0.0026897;  // Link 2 관성 (-O Aluminum)
 // PARAMETER_CONST double I2 = 0.0085731;  // Link 2 관성 (Aluminum + end plate)
 
+PARAMETER_CONST double I1m = 9*9*1002*1e-7;  // Link 1 motor 관성
+
+PARAMETER_CONST double I2m = 9*9*1002*1e-7;  // Link 1 motor 관성
 // ** 중력 가속도 **
 PARAMETER_CONST double g = 9.81;  // 중력 가속도
 

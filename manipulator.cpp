@@ -40,10 +40,10 @@ namespace Manipulator {
   Eigen::Matrix2d massMatrix(float q2) {
       Eigen::Matrix2d M;
       float c2 = cos(q2);
-      M(0, 0) = I1 + I2 + lc1*lc1*m1 + l1*l1*m2 + lc2*lc2*m2  + 2*c2*l1*lc2*m2;
+      M(0, 0) = I1 + I2 + lc1*lc1*m1 + l1*l1*m2 + lc2*lc2*m2  + 2*c2*l1*lc2*m2 + I1m;
       M(0, 1) = I2 + lc2*lc2*m2 + c2*l1*lc2*m2;
       M(1, 0) = M(0, 1);
-      M(1, 1) = I2 + lc2 * lc2 * m2;
+      M(1, 1) = I2 + lc2 * lc2 * m2 + I2m;
       return M;
   }
 
