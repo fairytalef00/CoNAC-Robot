@@ -20,7 +20,7 @@ namespace Trajectory {
   Eigen::Vector2d qd7;
 
   // double Ttraj = 16.0;               // 경로 생성 시간 (초)
-  double Ttraj = 21.0;               // 경로 생성 시간 (초)
+  double Ttraj = 50.0;               // 경로 생성 시간 (초)
   double Thome = 5.0;               // 홈 위치 경로 생성 시간 (초)
   double elapsed_time = 0.0;        // 경과 시간
 
@@ -47,113 +47,12 @@ namespace Trajectory {
         double t = elapsed_time;
 
         qd << -M_PI/2, 0;
-        // poly_filter_home(q0, qd, Thome, t);
 
         // linear trajectory
         r = q0 + (qd - q0) * (t/Thome);
         rdot = (qdotd - qdot0) / Thome;
         rddot.setZero();
 
-      } else {
-        CONTROL_FLAG = STANDBY;
-      }
-  }
-
-  void generateReference1(double dt) {
-    // 1. qd0 -> qd1 
-    // 2. idle(0.5s)
-
-    // //episode 1
-    // 3. qd1 -> qd2 
-    // 4. qd2 -> qd3
-    // 5. qd3 -> qd2
-    // 6. qd2 -> qd1
-
-    // //episode 2
-    // 3. qd1 -> qd2
-    // 4. qd2 -> qd3
-    // 5. qd3 -> qd2
-    // 6. qd2 -> qd1
-
-    // 7. idle(0.5s)
-    // 8. qd1 -> qd0 
-      
-    using namespace Manipulator;
-
-    elapsed_time += dt;
-    double t = elapsed_time;
-
-    // q0 << -M_PI/2, 0;
-    qd1 << -M_PI/3, M_PI/3;
-    qd2 << M_PI/4, -M_PI/2;      
-    qd3 << -M_PI/4, M_PI/4;
-    double Tidle = 2.0;         // idle time
-    double Tinit = 4.0;   // init time
-    double Ttotal = Tinit + Tidle + Ttraj + Tidle + Ttraj + Tidle + Tinit; // Total time 
-
-    if (t < Ttotal) {
-          if (t < Tinit) {
-              // 1. qd0 -> qd1
-              poly_filter(q0, qd1, Tinit, t);
-          } else if (t < Tinit + Tidle) {
-              // 2. Idle at qd1
-              r = qd1;
-              rdot.setZero();
-              rddot.setZero();
-
-          } else if (t < Tinit + Tidle + Ttraj) {
-              // Episode 1: qd1 -> qd2 -> qd3 -> qd2 -> qd1
-              double t_episode = t - (Tinit + Tidle);
-              if (t_episode < Ttraj/4) {
-                  poly_filter(qd1, qd2, Ttraj/4, t_episode); // qd1 -> qd2
-              } else if (t_episode < 2 * Ttraj/4) {
-                  poly_filter(qd2, qd3, Ttraj/4, t_episode - Ttraj/4); // qd2 -> qd3
-              } else if (t_episode < 3 * Ttraj/4) {
-                  poly_filter(qd3, qd2, Ttraj/4, t_episode - 2 * Ttraj/4); // qd3 -> qd2
-              if (t_episode < Ttraj/4) {
-                  poly_filter(qd1, qd2, Ttraj/4, t_episode); // qd1 -> qd2
-              } else if (t_episode < 2 * Ttraj/4) {
-                  poly_filter(qd2, qd3, Ttraj/4, t_episode - Ttraj/4); // qd2 -> qd3
-              } else if (t_episode < 3 * Ttraj/4) {
-                  poly_filter(qd3, qd2, Ttraj/4, t_episode - 2 * Ttraj/4); // qd3 -> qd2
-              } else {
-                  poly_filter(qd2, qd1, Ttraj/4, t_episode - 3 * Ttraj/4); // qd2 -> qd1
-                  poly_filter(qd2, qd1, Ttraj/4, t_episode - 3 * Ttraj/4); // qd2 -> qd1
-              }
-
-          } else if (t < Tinit + Tidle + Ttraj + Ttraj) {
-              // Episode 2: qd1 -> qd2 -> qd3 -> qd2 -> qd1
-              double t_episode = t - (Tinit + Tidle + Ttraj);
-              if (t_episode < Ttraj/4) {
-                  poly_filter(qd1, qd2, Ttraj/4, t_episode); // qd1 -> qd2
-              } else if (t_episode < 2 * Ttraj/4) {
-                  poly_filter(qd2, qd3, Ttraj/4, t_episode - Ttraj/4); // qd2 -> qd3
-              } else if (t_episode < 3 * Ttraj/4) {
-                  poly_filter(qd3, qd2, Ttraj/4, t_episode - 2 * Ttraj/4); // qd3 -> qd2
-              if (t_episode < Ttraj/4) {
-                  poly_filter(qd1, qd2, Ttraj/4, t_episode); // qd1 -> qd2
-              } else if (t_episode < 2 * Ttraj/4) {
-                  poly_filter(qd2, qd3, Ttraj/4, t_episode - Ttraj/4); // qd2 -> qd3
-              } else if (t_episode < 3 * Ttraj/4) {
-                  poly_filter(qd3, qd2, Ttraj/4, t_episode - 2 * Ttraj/4); // qd3 -> qd2
-              } else {
-                  poly_filter(qd2, qd1, Ttraj/4, t_episode - 3 * Ttraj/4); // qd2 -> qd1
-                  poly_filter(qd2, qd1, Ttraj/4, t_episode - 3 * Ttraj/4); // qd2 -> qd1
-              }
-
-          } else if (t < Tinit + Tidle + Ttraj + Ttraj + Tidle) {
-          } else if (t < Tinit + Tidle + Ttraj + Ttraj + Tidle) {
-              // 7. Idle at qd1
-              r = qd1;
-              rdot.setZero();
-              rddot.setZero();
-
-          } else {
-              // 8. qd1 -> qd0
-              double t_return = t - (Tinit + Tidle + Ttraj + Ttraj + Tidle);
-              double t_return = t - (Tinit + Tidle + Ttraj + Ttraj + Tidle);
-              poly_filter(qd1, q0, Tinit, t_return);
-          }
       } else {
         CONTROL_FLAG = STANDBY;
       }
@@ -347,21 +246,77 @@ namespace Trajectory {
     }
   }
 
-//   void poly_filter(const Eigen::Vector2d& q0, const Eigen::Vector2d& qd, double T, double t){
+    void generateReference4(double dt) {
+        using namespace Manipulator;
 
-//     Eigen::Vector2d a0 = q0;
-//     Eigen::Vector2d a1 = Eigen::Vector2d::Zero();
-//     Eigen::Vector2d a2 = Eigen::Vector2d::Zero();
+        elapsed_time += dt;
+        double t = elapsed_time;
 
-//     Eigen::Vector2d a3 = 10 * (qd - a0) / (T * T * T);
-//     Eigen::Vector2d a4 = -15 * (qd - q0) / (T * T * T * T);
-//     Eigen::Vector2d a5 = 6 * (qd - a0) / (T * T * T * T * T);
+        // 목표 위치들 정의
+        // q0 << -M_PI/2, 0;
+        // qd1 = {M_PI/4, M_PI/2};                     // qd1
+        // qd2 = {M_PI/4 + M_PI/2, -M_PI/2};          // qd2
+        q0 << -M_PI/2, 0;
+        qd1 = {-M_PI/3, 2*M_PI/3};                     // qd1
+        qd2 = {M_PI/3, -2*M_PI/3};          // qd2
+        Eigen::Vector2d waypoints[] = {
+        q0, qd1, qd2, qd1, qd2, qd1, qd2, qd1, qd2, qd1, qd2, qd1, qd2, qd1, qd2, qd1, qd2, qd1, qd2, qd1, qd2, qd1, q0
+        };
+        const int num_segments = sizeof(waypoints) / sizeof(waypoints[0]) - 1;
 
-//     // 5차 다항식 계산
-//     r = a0 + a1 * t + a2 * (t * t) + a3 * t * t * t + a4 * t * t * t * t + a5 * t * t * t * t * t;
-//     rdot = a1 + 2.0 * a2 * t + 3.0 * a3 * t * t + 4.0 * a4 * t * t * t + 5.0 * a5 * t * t * t * t;
+        double traj_times[num_segments];
+        traj_times[0] = 4.0;
+        for (int i = 1; i < num_segments-1; i++) {
+            traj_times[i] = Ttraj/10;
+        }
+        traj_times[num_segments-1] = 4.0;
 
-//   }
+        double Tidle = 1.0;
+
+        // 총 시간 계산
+        double Ttotal = Tidle;
+        for (int i = 0; i < num_segments; i++) {
+            Ttotal += traj_times[i] + Tidle;
+        }
+
+        if (t >= Ttotal) {
+            CONTROL_FLAG = STANDBY;
+            return;
+        }
+
+        // 현재 구간 찾기
+        double current_time = 0.0;
+
+        // 초기 idle 시간
+        if (t < Tidle) {
+            r = waypoints[0];
+            rdot.setZero();
+            rddot.setZero();
+            return;
+        }
+        current_time += Tidle;
+
+        // 각 궤적 구간 처리
+        for (int i = 0; i < num_segments; i++) {
+            // 궤적 구간
+            if (t < current_time + traj_times[i]) {
+                double t_segment = t - current_time;
+                poly_filter(waypoints[i], waypoints[i + 1], traj_times[i], t_segment);
+                return;
+            }
+            current_time += traj_times[i];
+
+            // idle 구간
+            if (t < current_time + Tidle) {
+                r = waypoints[i + 1];
+                rdot.setZero();
+                rddot.setZero();
+                return;
+            }
+            current_time += Tidle;
+        }
+    }
+
 
   void poly_filter(const Eigen::Vector2d& q0, const Eigen::Vector2d& qd, double T, double t) {
     // // 행렬 A 정의 (6x6)

@@ -185,12 +185,12 @@ def update_plot():
                 data_motor2[1].append(qdot2); time_motor2[1].append(timestamp)
                 data_motor2[2].append(tau2); time_motor2[2].append(timestamp)  # tau2
 
-            # elif msg.arbitration_id == 8:
-            #     q1,qdot1,q2,qdot2 = unpack_var4(msg.data)
-            #     data_motor1[0].append(q1); time_motor1[0].append(timestamp)
-            #     data_motor1[1].append(qdot1); time_motor1[1].append(timestamp)
-            #     data_motor2[0].append(q2); time_motor2[0].append(timestamp)  # tau1
-            #     data_motor2[1].append(qdot2); time_motor2[1].append(timestamp)
+            elif msg.arbitration_id == 8:
+                q1,qdot1,q2,qdot2 = unpack_var4(msg.data)
+                data_motor1[0].append(q1); time_motor1[0].append(timestamp)
+                data_motor1[1].append(qdot1); time_motor1[1].append(timestamp)
+                data_motor2[0].append(q2); time_motor2[0].append(timestamp)  # tau1
+                data_motor2[1].append(qdot2); time_motor2[1].append(timestamp)
         except ValueError as e:
             print(f"[Warning] ID={msg.arbitration_id}, length={len(msg.data)}, raw data={msg.data.hex()}")
             continue
@@ -225,40 +225,42 @@ def update_plot():
 
 
 def update_robot_arm():
-    if len(data_r[0]) > 0 and len(data_r[1]) > 0:
+    # if len(data_r[0]) > 0 and len(data_r[1]) > 0:
+    if len(data_r[0]) > 0:
         # 참조 모델의 관절 각도 (r1, r2)
         r1 = data_r[0][-1]
-        r2 = data_r[1][-1]
+        # r2 = data_r[1][-1]
         # 참조 모델의 Forward Kinematics 계산
         x1_ref = l1 * np.cos(r1)
         y1_ref = l1 * np.sin(r1)
-        x2_ref = x1_ref + l2 * np.cos(r1 + r2)
-        y2_ref = y1_ref + l2 * np.sin(r1 + r2)
+        # x2_ref = x1_ref + l2 * np.cos(r1 + r2)
+        # y2_ref = y1_ref + l2 * np.sin(r1 + r2)
 
-        # 참조 모델 업데이트 (길이 2 체크)
-        if not any(np.isnan([x1_ref, x2_ref, y1_ref, y2_ref])):
-            ref_link1.setData([0, x1_ref], [0, y1_ref])
-            ref_link2.setData([x1_ref, x2_ref], [y1_ref, y2_ref])
+        # # 참조 모델 업데이트 (길이 2 체크)
+        # if not any(np.isnan([x1_ref, x2_ref, y1_ref, y2_ref])):
+        #     ref_link1.setData([0, x1_ref], [0, y1_ref])
+        #     ref_link2.setData([x1_ref, x2_ref], [y1_ref, y2_ref])
+        ref_link1.setData([0, x1_ref], [0, y1_ref])
 
-
-    if len(data_motor1[0]) > 0 and len(data_motor2[0]) > 0:
+    # if len(data_motor1[0]) > 0 and len(data_motor2[0]) > 0:
+    if len(data_motor1[0]) > 0:
         # 실제 로봇팔의 관절 각도 (q1, q2)
         q1 = data_motor1[0][-1]
-        q2 = data_motor2[0][-1]
+        # q2 = data_motor2[0][-1]
 
         # 실제 로봇팔의 Forward Kinematics 계산
         x1_actual = l1 * np.cos(q1)
         y1_actual = l1 * np.sin(q1)
-        x2_actual = x1_actual + l2 * np.cos(q1 + q2)
-        y2_actual = y1_actual + l2 * np.sin(q1 + q2)
+        # x2_actual = x1_actual + l2 * np.cos(q1 + q2)
+        # y2_actual = y1_actual + l2 * np.sin(q1 + q2)
 
         # 실제 로봇팔 업데이트 (길이 2 체크)
-        if not any(np.isnan([x1_actual, x2_actual, y1_actual, y2_actual])):
-            link1.setData([0, x1_actual], [0, y1_actual])
-            link2.setData([x1_actual, x2_actual], [y1_actual, y2_actual])
-            joint1.setData([x1_actual], [y1_actual])
-            joint2.setData([x2_actual], [y2_actual])
-            end_effector.setData([x2_actual], [y2_actual])
+        # if not any(np.isnan([x1_actual, x2_actual, y1_actual, y2_actual])):
+        link1.setData([0, x1_actual], [0, y1_actual])
+            # link2.setData([x1_actual, x2_actual], [y1_actual, y2_actual])
+        joint1.setData([x1_actual], [y1_actual])
+            # joint2.setData([x2_actual], [y2_actual])
+            # end_effector.setData([x2_actual], [y2_actual])
 
 
 # === 참조 모델을 위한 선 추가 ===

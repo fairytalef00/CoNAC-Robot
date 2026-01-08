@@ -62,60 +62,29 @@ namespace Manipulator {
       Eigen::Vector2d G;
       float c12 = cos(q1+q2);
       float c1 = cos(q1);
-      G(0) = g * (c12 * lc2 * m2 + c1 * (lc1 * m1 + l1 * m2));
-      G(1) = c12 * g * lc2 * m2;
+      // G(0) = g * (c12 * lc2 * m2 + c1 * (lc1 * m1 + l1 * m2));
+      G(0) = g * c1*(lc1*m1);
+      G(1) = 0;
+      // G(1) = c12 * g * lc2 * m2;
       return G;
   }
 
   // Friction Model (F)
-  Eigen::Vector2d frictionVector(float qdot1, float qdot2, 
-                                const Eigen::Vector2d& u, 
-                                const Eigen::Vector2d& G, 
-                                const Eigen::Matrix2d& J, 
-                                const Eigen::Vector2d& Fext) {
-      float Fs1 = 0.3;   // Static friction for joint 1
-      float Fs2 = 0.3;   // Static friction for joint 2 0.2
-      float Fc1 = 0.8 * 0.3;  // Coulomb friction for joint 1
-      float Fc2 = 0.8 * 0.3;  // Coulomb friction for joint 2 0.8 * 0.2
-      float Fv1 = 0.1; // Viscous friction coefficient for joint 1
-      float Fv2 = 0.1; // Viscous friction coefficient for joint 2
+  Eigen::Vector2d frictionVector(float qdot1, float qdot2) {
+      float Fc1 = 0.8;  // Coulomb friction for joint 1
+      float Fc2 = 0.8;  // Coulomb friction for joint 2 
+      float Fv1 = 0.2; // Viscous friction coefficient for joint 1
+      float Fv2 = 0.2; // Viscous friction coefficient for joint 2
 
-      float stiction_threshold = 1e-3; // 정지 마찰을 고려할 속도 임계값
-
-      // 순수 외력 계산: u - G - J^T * Fext
-      Eigen::Vector2d effective_torque = u - G;
-
-      auto friction = [&](float qdot, float Fc, float Fv, float Fs, float effective_torque) {
-          float friction_force = 0.0f;
-
-          if (fabs(qdot) < stiction_threshold) {
-              // 속도가 거의 0일 때
-              if (fabs(effective_torque) < Fs) {
-                  // 순수 외력이 정지 마찰력보다 작으면 움직이지 않음
-                  friction_force = effective_torque;
-              } else {
-                  // 정지 마찰력 극복 시, 운동 마찰로 전환
-                  if (effective_torque >= 0) {
-                      friction_force = Fc + Fv * qdot;
-                  } else {
-                      friction_force = -Fc + Fv * qdot;
-                  }
-              }
-          } else {
-              // 일반적인 Coulomb + Viscous 마찰 모델 적용
-              if (qdot >= 0) {
-                  friction_force = Fc + Fv * qdot;
-              } else {
-                  friction_force = -Fc + Fv * qdot;
-              }
-          }
-
-          return friction_force;
+      auto friction = [&](float qdot, float Fc, float Fv) {
+        // tanh 기반 마찰 모델
+        float friction_force = Fc * tanh(600.0f * qdot) + Fv * qdot;
+        return friction_force;
       };
 
       return Eigen::Vector2d(
-          friction(qdot1, Fc1, Fv1, Fs1, effective_torque(0)),
-          friction(qdot2, Fc2, Fv2, Fs2, effective_torque(1))
+          friction(qdot1, Fc1, Fv1),
+          friction(qdot2, Fc2, Fv2)
       );
   }
 
@@ -326,51 +295,10 @@ namespace Manipulator {
       return u_sat;
   }
 
-//   // Saturation
-//   Eigen::Vector2d saturation(Eigen::Vector2d& u) {
-//     Eigen::Vector2d u_sat = u;
-
-//     if (u.norm() > u_ball){
-//         u_sat = u / u.norm(u) * u_ball;
-
-//         // case 1
-//         if (u_sat(0) > u1_max){
-//             u_sat(1) = u_sat(1) * u1_max / fabs(u_sat(0));
-//             u_sat(0) = u1_max;
-//         }
-//         else if (u_sat(0) < - u1_max){
-//             u_sat(1) = u_sat(1) * u1_max / fabs(u_sat(0));
-//             u_sat(0) = - u1_max;
-//         }
-
-//         // case 2
-//         else if (fabs(u_sat(0)) < u1_max){
-//             u_sat = u / u.norm() * u_ball;
-//         }
-//     } 
-//     else if (u.norm() < u_ball){
-//         // case 3
-//         if (u_sat(0) > u1_max){
-//             u_sat(1) = u_sat(1) * u1_max / fabs(u_sat(0));
-//             u_sat(0) = u1_max;
-//         }
-//         else if (u_sat(0) < - u1_max){
-//             u_sat(1) = u_sat(1) * u1_max / fabs(u_sat(0));
-//             u_sat(0) = -u1_max;
-//         }
-//         // case 4
-//         else if (fabs(u_sat(0)) <u1_max){
-//             u_sat = u;
-//         }
-//     }
-     
-//     return u_sat;
-//   }
-
   void updateDynamics(const float dt) {
       // 질량, 코리올리스, 중력 계산
       computeDYN(M, C, G, q, qdot);
-      F = frictionVector(qdot(0), qdot(1), u_sat, G, J, Fext);
+      F = frictionVector(qdot(0), qdot(1));
 
       Eigen::Vector2d qddot = M.inverse() * (- C * qdot - G - F + u_sat);
       qdot += qddot * dt;

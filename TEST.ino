@@ -118,7 +118,7 @@ void controlLoop()
       // If using matrix, computing time_Ref  = 0.641 ms. (6*6 matrix)
       // If using vector, computing time_Ref  = 0.012 ~ 0.013 ms. 
 
-      generateReference3(ctrl_dt); 
+      generateReference4(ctrl_dt); 
       // computing time_DYN  = 0.012 ~ 0.0145 ms 
       computeDYN(M, C, G, q, filter_qdot);
       u = M * (rddot + Dd * (rdot - filter_qdot) + Kd * (r - q)) + C * filter_qdot + G;
@@ -143,6 +143,24 @@ void controlLoop()
       break;
     }
     case EXECUTE2 :
+      // computing time_DYN  = 0.012 ~ 0.0145 ms 
+      computeDYN(M, C, G, q, filter_qdot);
+      u = C * filter_qdot + G;
+
+      // d_hat = L * (M * qdot + Z);
+      // Zdot = - (u + C.transpose()*qdot - G) - d_hat;
+      // Z += Zdot * ctrl_dt;
+
+      // u_sat = saturation(u);
+      u_sat(0) = constrain(u(0), -20, 20);
+      u_sat(1) = constrain(u(1), -20, 20);
+
+      // computing time_CAN  = 0.0120 ~ 0.0124 ms 
+      send_var_command4(3, r(0), r(1), rdot(0), rdot(1));  
+      send_var_command4(4, rddot(0), rddot(1), filter_qdot(0), filter_qdot(1));
+      send_var_command4(5, u(0), u(1), CONTROL_FLAG, 0);
+      break;
+    
     case EXECUTE3 : 
     case EXECUTE4 : 
       break;

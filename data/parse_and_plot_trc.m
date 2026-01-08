@@ -1,12 +1,13 @@
 function parse_and_plot_trc(filename)
     % 대상 ID
-    target_ids = ["0003", "0004", "0005", "0006", "00002901", "00002902"];
+    target_ids = ["0003", "0004", "0005", "0006", "0008","00002901", "00002902"];
 
     % 결과 저장용
     time_003 = []; data_003 = [];
     time_004 = []; data_004 = [];
     time_005 = []; data_005 = [];
     time_006 = []; data_006 = [];
+    time_008 = []; data_008 = [];
     time_2901 = []; data_2901 = [];
     time_2902 = []; data_2902 = [];
 
@@ -51,6 +52,10 @@ function parse_and_plot_trc(filename)
                     decoded = unpack_motor(data_bytes);
                     time_2902(1, end+1) = t;
                     data_2902(:,end+1) = decoded;
+                elseif id_hex == "0008"
+                    decoded = unpack_var4(data_bytes);
+                    time_008(1, end+1) = t;
+                    data_008(:,end+1) = decoded;
 
                 end
             end
@@ -81,6 +86,11 @@ function parse_and_plot_trc(filename)
     time_006 = time_006(idx_006);
     data_006 = data_006(:,idx_006);
 
+
+    idx_008 = (time_008 >= active_time_min) & (time_008 <= active_time_max);
+    time_008 = time_008(idx_008);
+    data_008 = data_008(:,idx_008);
+
     idx_2901 = (time_2901 >= active_time_min) & (time_2901 <= active_time_max);
     time_2901 = time_2901(idx_2901);
     data_2901 = data_2901(:,idx_2901);
@@ -100,6 +110,8 @@ function parse_and_plot_trc(filename)
     data_003 = data_003(:,1:end);
     time_004 = time_004(:,1:end);
     data_004 = data_004(:,1:end);
+    time_008 = time_008(:,1:end);
+    data_008 = data_008(:,1:end);    
     time_2901 = time_2901(:,1:end);
     data_2901 = data_2901(:,1:end);
     time_2902 = time_2902(:,1:end);
@@ -131,7 +143,7 @@ function parse_and_plot_trc(filename)
     disp(['time_2902 length: ', num2str(length(time_2902))]);
     disp(['data_2902 size: ', mat2str(size(data_2902))]);    
 
-    save('C:\Users\fairy\GitProject\model_identification\src\simulink_simulation\raw_data\LPF_on_60_100_20_2.mat', ...
+    save('C:\Users\fairy\GitProject\model_identification\src\simulink_simulation\raw_data\LPF_on_60_100_20_6.mat', ...
         'time_003','data_003', ...
         'time_004','data_004', ...
         'time_005','data_005', ...
@@ -145,6 +157,8 @@ function parse_and_plot_trc(filename)
     hold on;
     plot(time_2901, data_2901(1,:), 'g-', 'LineWidth', 1); % q1
     plot(time_2902, data_2902(1,:), 'b-', 'LineWidth', 1); % q2
+    % plot(time_008, data_008(1,:), 'g-', 'LineWidth', 1); % q1
+    % plot(time_008, data_008(3,:), 'b-', 'LineWidth', 1); % q2
     plot(time_003, data_003(1,:), 'g--', 'LineWidth', 2); % r1
     plot(time_003, data_003(2,:), 'b--', 'LineWidth', 2); % r2
     hold off;
@@ -156,6 +170,8 @@ function parse_and_plot_trc(filename)
     hold on;
     plot(time_004, data_004(3,:), 'g-', 'LineWidth', 1); % qdot1
     plot(time_004, data_004(4,:), 'b-', 'LineWidth', 1); % qdot2
+    % plot(time_008, data_008(2,:), 'g-', 'LineWidth', 1); % qdot1
+    % plot(time_008, data_008(4,:), 'b-', 'LineWidth', 1); % qdot2
     plot(time_003, data_003(3,:), 'g--', 'LineWidth',2); % rdot1
     plot(time_003, data_003(4,:), 'b--', 'LineWidth',2); % rdot2
     hold off;
